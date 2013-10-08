@@ -1,4 +1,3 @@
-
 import setuptools
 from chromogenic.version import get_version, git_dependencies, dependencies
 
@@ -15,7 +14,7 @@ setuptools.setup(
     description="A unified imaging interface supporting multiple cloud providers.",
     long_description=long_description,
     license="Apache License, Version 2.0",
-    url="https://github.com/iPlantCollaborativeOpenSource/chromogenic-cloud",
+    url="https://github.com/iPlantCollaborativeOpenSource/chromogenic",
     packages=setuptools.find_packages(),
     dependency_links=git_dependencies('requirements.txt'),
     install_requires=dependencies('requirements.txt'),
