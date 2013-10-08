@@ -6,6 +6,31 @@ from os.path import abspath, dirname
 
 VERSION = (0, 0, 1, 'dev', 0)
 
+def dependencies(requirements_file):
+    return read_requirements(requirements_file, False)
+
+def git_dependencies(requirements_file):
+    return read_requirements(requirements_file, True)
+
+def read_requirements(requirements_file, git=False):
+    deps = []
+    with open(requirements_file, 'r') as f:
+        for line in f.read().split('\n'):
+            #Skip empty spaces
+            if not line:
+                continue
+            #Add git if looking for git
+            if 'git+git' in line:
+                if git:
+                    deps.append(line)
+                else:
+                    # The dependency is the egg name
+                    deps.append(line.split('#egg=')[1])
+            #Add requirements if not looking for git
+            elif not git:
+                deps.append(line)
+    return deps
+
 def git_sha():
     loc = abspath(dirname(__file__))
     try:

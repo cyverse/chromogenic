@@ -1,6 +1,6 @@
 import os
 import setuptools
-from chromogenic.version import get_version
+from chromogenic.version import get_version, git_dependencies, dependencies
 
 readme = open('README.md').read()
 
@@ -29,12 +29,8 @@ setuptools.setup(
     license="Apache License, Version 2.0",
     url="https://github.com/iPlantCollaborativeOpenSource/chromogenic-cloud",
     packages=setuptools.find_packages(),
-    dependency_links=[
-        "git+git://github.com/apache/libcloud.git#egg=apache-libcloud-0.14.0-dev",
-    ],
-    install_requires=[
-        "apache-libcloud>=0.14.0-dev",
-    ],
+    dependency_links=git_dependencies('requirements.txt'),
+    install_requires=dependencies('requirements.txt'),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
