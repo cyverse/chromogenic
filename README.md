@@ -1,9 +1,9 @@
-chromogenic-cloud
+Chromogenic
 ====
 
 A unified interface for imaging to/from multiple cloud providers.
 
-Chromogenic-cloud Features:
+Chromogenic Features:
 =====================
 
 Imaging:
@@ -33,15 +33,15 @@ Cleaning:
 - [~] - Feature in progress
 - [ ] - Unsupported feature addressed in future releases
 
-Why use chromogeniccloud?
-==========================
+Why use chromogenic?
+====================
 
 Cloud computing is 'the next big thing' for IT. Whether you use private clouds on your own servers (Eucalyptus, Openstack) or your running instances on AWS, the idea is the same.
 You click one button, wait a few minutes ( or less!) and voila, a computer is ready and waiting. Did you just 'rm -rf /' on your instance? No problem, just shut it down and startup a new instance and try it all over again.
 
 Another great benefit to cloud computing is snapshots/imaging, which allows you to save your instance in it's current state and make it available as a new image that you can launch. However, imaging on any cloud provider can be a multi-step, intensive process.
 
-Chromogenic-cloud takes all of the complexity out and allows you to run a single command that will do all the heavy lifting behind the scenes.
+Chromogenic takes all of the complexity out and allows you to run a single command that will do all the heavy lifting behind the scenes.
 
 Creating An Image:
 ==================
