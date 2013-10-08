@@ -25,7 +25,10 @@ def read_requirements(requirements_file, git=False):
                     deps.append(line)
                 else:
                     # The dependency is the egg name
-                    deps.append(line.split('#egg=')[1])
+                    dep_split = line.split('#egg=')
+                    if len(dep_split) > 1:
+                        git_link, egg = dep_split
+                    deps.append(egg)
             #Add requirements if not looking for git
             elif not git:
                 deps.append(line)
