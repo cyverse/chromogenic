@@ -1,5 +1,5 @@
 boto==2.9
-euca2ools==1.3.3
+git+git://github.com/iPlantCollaborativeOpenSource/euca2ools#egg=euca2ools
 git+git://github.com/openstack/python-glanceclient.git#egg=python-glanceclient
 git+git://github.com/openstack/python-keystoneclient.git#egg=python-keystoneclient
 git+git://github.com/openstack/python-novaclient.git#egg=python-novaclient
