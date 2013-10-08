@@ -1,16 +1,27 @@
 """
 Current logger version.
 """
+import re
+
 from subprocess import Popen, PIPE
 from os.path import abspath, dirname
 
 VERSION = (0, 0, 1, 'dev', 0)
+
+egg_regex = re.compile("(?P<egg>.*)-(?P<version>[0-9.].*)$")
 
 def dependencies(requirements_file):
     return read_requirements(requirements_file, False)
 
 def git_dependencies(requirements_file):
     return read_requirements(requirements_file, True)
+
+def convert_version(egg):
+    r = egg_regex.search(egg)
+    if not r:
+        return egg
+    group = r.groupdict()
+    return "%s==%s" % (group['egg'], group['version'])
 
 def read_requirements(requirements_file, git=False):
     deps = []
@@ -22,13 +33,17 @@ def read_requirements(requirements_file, git=False):
             #Add git if looking for git
             if 'git+git' in line:
                 if git:
+                    #Add to dependency_links
                     deps.append(line)
                 else:
+                    #Add just the egg name to 
                     # The dependency is the egg name
                     dep_split = line.split('#egg=')
                     if len(dep_split) > 1:
                         git_link, egg = dep_split
-                        deps.append(egg)
+                        # Remove branch information from the egg
+                        requirement = convert_version(egg)
+                        deps.append(requirement)
             #Add requirements if not looking for git
             elif not git:
                 deps.append(line)

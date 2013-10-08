@@ -1,23 +1,11 @@
-import os
+
 import setuptools
-from chromogenic.version import get_version, git_dependencies, dependencies
+from chromogenic.version import get_version#, git_dependencies, dependencies
 
 readme = open('README.md').read()
 
-long_description = """
-rtwo %s
-A unified interface into multiple cloud providers.
+long_description = readme
 
-To install use pip install git+git://git@github.com:iPlantCollaborativeOpenSource/rtwo.git
-
-----
-
-%s
-
-----
-
-For more information, please see: https://github.com/iPlantCollaborativeOpenSource/rtwo
-""" % (get_version('short'), readme)
 
 setuptools.setup(
     name='chromogenic',
