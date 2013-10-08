@@ -315,11 +315,13 @@ Now that we have a bootable disk, all thats left is running VBoxManage a few tim
     VBoxManage convertfromraw newimage.raw my_hdd.vdi
 
 2. Virtual hard drive --> OVA
+```
     VBoxManage createvm --name "example-vmname" --ostype Linux --register
     VBoxManage modifyvm "example-vmname" --memory 512 --acpi on --ioapic on
     VBoxManage storagectl "example-vmname" --name "SATA Controller" --add sata --controller IntelAHCI
     VBoxManage storageattach "example-vmname" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "my_hdd.vdi"
     VBoxManage export "example-vmname" --output "example-vmname.ova"
+```
 
 3. Cleanup
     By now you have all sorts of files you dont need anymore, and they are taking up A LOT of space! Go remove your .img, .vdi and bootable raw (After you have tested your OVA actually works, of course!)
