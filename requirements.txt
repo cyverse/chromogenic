@@ -1,6 +1,6 @@
 git+git://github.com/openstack/python-glanceclient.git#egg=python-glanceclient
 git+git://github.com/openstack/python-keystoneclient.git#egg=python-keystoneclient
 git+git://github.com/openstack/python-novaclient.git#egg=python-novaclient
-git+git://github.com/iPlantCollaborativeOpenSource/euca2ools.git#egg=euca2ools
+git+git://github.com/iPlantCollaborativeOpenSource/euca2ools.git
 git+git://github.com/iPlantCollaborativeOpenSource/rtwo.git#egg=rtwo
 git+git://github.com/jmatt/threepio.git#egg=threepio
