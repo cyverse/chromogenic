@@ -1,6 +1,6 @@
 
 import setuptools
-from chromogenic.version import get_version#, git_dependencies, dependencies
+from chromogenic.version import get_version, git_dependencies, dependencies
 
 readme = open('README.md').read()
 
