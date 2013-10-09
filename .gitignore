@@ -1,5 +1,8 @@
 *.py[cod]
 
+# Python environment alias
+env_source
+
 # C extensions
 *.so
 
