@@ -96,7 +96,7 @@ ASSUMPTIONS:
 
 # How to Install
 ```bash
-pip install -e git://github.com/iPlantCollaborativeOpenSource/chromogenic#egg=chromogenic
+pip install git+git://github.com/iPlantCollaborativeOpenSource/chromogenic#egg=chromogenic
 ```
 
 # License

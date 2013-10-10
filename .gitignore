@@ -1,5 +1,7 @@
 *.py[cod]
 
+# Django-related
+settings.py
 # Python environment alias
 env_source
 

@@ -54,6 +54,30 @@ class ImageManager():
     euca = None
     s3_url = None
 
+    @classmethod
+    def _build_image_creds(self, credentials):
+        """
+        Credentials - dict()
+
+        return the credentials required to build a "UserManager" object
+        """
+        img_args = credentials.copy()
+        #Required args:
+        img_args.get('key')
+        img_args.get('secret')
+
+        img_args.get('config_path')
+        img_args.get('ec2_cert_path')
+        img_args.get('ec2_url')
+        img_args.get('euca_cert_path')
+        img_args.get('pk_path')
+        img_args.get('s3_url')
+        #Root dir to find extras/...
+        img_args.get('extras_root', settings.PROJECT_ROOT)
+        #Remove if exists:
+        img_args.pop('account_path')
+        return img_args
+
     def __init__(self, *args, **kwargs):
         """
         All credentials are necessary to Private Key file required to decrypt images.

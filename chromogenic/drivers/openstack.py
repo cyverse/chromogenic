@@ -59,6 +59,27 @@ class ImageManager():
         lc_driver_args.update(kwargs)
         manager = ImageManager(*args, **lc_driver_args)
         return manager
+    @classmethod
+    def build_image_creds(cls, credentials):
+        """
+        Credentials - dict()
+
+        return the credentials required to build an "ImageManager"
+        """
+        img_args = credentials.copy()
+        #Required:
+        img_args.get('username')
+        img_args.get('password')
+        img_args.get('tenant_name')
+
+        img_args.get('auth_url')
+        img_args.get('region_name')
+        #Ignored:
+        img_args.pop('admin_url', None)
+        img_args.pop('router_name', None)
+        img_args.pop('ex_project_name', None)
+
+        return img_args
 
     def __init__(self, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0:
