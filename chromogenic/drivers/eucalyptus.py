@@ -41,7 +41,7 @@ from chromogenic.common import mount_image, remove_files, get_latest_ramdisk
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
                                   remove_vm_specific_data
 from chromogenic.convert import xen_to_kvm_centos
-
+from django.conf import settings
 from threepio import logger
 
 
