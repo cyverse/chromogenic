@@ -56,97 +56,10 @@ def machine_export_task(machine_export):
     #TODO: Option to upload this file into S3 
 
     logger.debug("machine_export_task task finished at %s." % datetime.now())
-    pass
+    return (md5_sum, url)
 
-@task(name='machine_imaging_task', ignore_result=True)
-def machine_imaging_task(machine_request, provider_creds, migrate_creds):
-    try:
-        machine_request.status = 'processing'
-        machine_request.save()
-        logger.debug('%s' % machine_request)
-        local_download_dir = settings.LOCAL_STORAGE
-        new_image_id = select_and_build_image(machine_request,
-                provider_creds, migrate_creds, local_download_dir)
-        if new_image_id is None:
-            raise Exception('The image cannot be built as requested. '
-                            + 'The provider combination is probably bad.')
-        logger.info('New image created - %s' % new_image_id)
-        return new_image_id
-    except Exception as e:
-        logger.exception(e)
-        machine_request.status = 'error - %s' % (e,)
-        machine_request.save()
-        return None
-
-def select_and_build_image(machine_request, provider_creds,
-                           migrate_creds, local_download_dir='/tmp'):
-    """
-    Directing traffic between providers
-    Fill out all available fields using machine request data
-    """
-
-    old_provider = machine_request.parent_machine.provider
-    new_provider = machine_request.new_machine_provider
-    old_type = old_provider.type.name.lower()
-    new_type = new_provider.type.name.lower()
-    new_image_id = None
-    logger.info('Processing machine request to create a %s image from a %s '
-                'instance' % (new_provider, old_provider))
-    
-    if old_type == 'eucalyptus':
-        if new_type == 'eucalyptus':
-            credentials = EucaImageManager._build_image_creds(provider_creds)
-            manager = EucaImageManager(**credentials)
-            #Rebuild meta information based on machine_request
-            meta_name = '%s_%s_%s_%s' % ('admin',
-                machine_request.new_machine_owner.username,
-                machine_request.new_machine_name.replace(
-                    ' ','_').replace('/','-'),
-                machine_request.start_date.strftime('%m%d%Y_%H%M%S'))
-            public_image = "public" in machine_request.new_machine_visibility\
-                                        .lower()
-            private_user_list=re.split(', | |\n', machine_request.access_list)
-            exclude=re.split(", | |\n", machine_request.exclude_files)
-            #Create image on image manager
-            new_image_id = manager.create_image(
-                machine_request.instance.provider_alias,
-                image_name=machine_request.new_machine_name,
-                public=public_image,
-                #Split the string by ", " OR " " OR "\n" to create the list
-                private_user_list=private_user_list,
-                exclude=exclude,
-                meta_name=meta_name,
-                local_download_dir=local_download_dir,
-            )
-        elif new_type == 'openstack':
-            logger.info('Create openstack image from euca image')
-            euca_credentials = EucaImageManager._build_image_creds(provider_creds)
-            euca_manager = EucaImageManager(**euca_credentials)
-            os_credentials = OSImageManager._build_image_creds(migrate_creds)
-            os_manager = OSImageManager(**os_credentials)
-            manager = EucaOSMigrater(euca_manager, os_manager)
-            new_image_id = manager.migrate_instance(
-                machine_request.instance.provider_alias,
-                machine_request.new_machine_name,
-                local_download_dir=local_download_dir) 
-    elif old_type == 'openstack':
-        if new_type == 'eucalyptus':
-            logger.info('Create euca image from openstack image')
-            #TODO: Replace with OSEucaMigrater when this feature is complete
-            new_image_id = None
-        elif new_type == 'openstack':
-            logger.info('Create openstack image from openstack image')
-            os_credentials = OSImageManager._build_image_creds(provider_creds)
-            manager = OSImageManager(**os_credentials)
-            #TODO: When switching between OS Providers (OS-->Devstack?)
-            new_image_id = manager.create_image(
-                machine_request.instance.provider_alias,
-                machine_request.new_machine_name,
-                local_download_dir=local_download_dir)
-            #TODO: Grab the machine, then add image metadata here
-            machine = [img for img in manager.list_images()
-                       if img.id == new_image_id]
-            if not machine:
-                return
+@task(name='machine_imaging_task', ignore_result=False)
+def machine_imaging_task(create_fn, args, kwargs):
+    new_image_id = create_fn(*args, **kwargs)
     return new_image_id
 
