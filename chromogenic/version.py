@@ -13,7 +13,6 @@ git_match = "(?P<git_flag>git://)\S*#egg="\
             # Version is optional
 egg_match = "(?P<egg>\S.*[a-zA-Z])"\
             "(?P<opt_version_flag>[-=]+)?"\
-            "(?P<opt_version>[0-9][0-9.-]*)?"
             "(?P<opt_version>[0-9]*[0-9.-]*[0-9])?(?P<dev_flag>-dev)?"
             # Version is optional
 def read_requirements(requirements_file):
