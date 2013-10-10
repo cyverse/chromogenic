@@ -65,7 +65,7 @@ class ImageManager():
         #Required args:
         img_args.get('key')
         img_args.get('secret')
-
+        logger.info(settings._wrapped.__dict__)
         img_args.get('config_path')
         img_args.get('ec2_cert_path')
         img_args.get('ec2_url')
