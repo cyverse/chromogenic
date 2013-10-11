@@ -59,6 +59,6 @@ def machine_export_task(machine_export):
 
 @task(name='machine_imaging_task', ignore_result=False)
 def machine_imaging_task(manager, args, kwargs):
-    new_image_id = manager.create_instance(*args, **kwargs)
+    new_image_id = manager.create_image(*args, **kwargs)
     return new_image_id
 
