@@ -84,6 +84,7 @@ class ImageManager():
     def __init__(self, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0:
             raise KeyError("Credentials missing in __init__. ")
+        logger.info(kwargs)
 
         self.admin_driver = self.build_admin_driver(**kwargs)
         self.keystone, self.nova, self.glance = self.new_connection(*args, **kwargs)
@@ -91,9 +92,9 @@ class ImageManager():
     def build_admin_driver(self, **kwargs):
         OSProvider.set_meta()
         provider = OSProvider()
-        user = kwargs.get('username')
-        secret = kwargs.get('password')
-        tenant_name = kwargs.get('tenant_name')
+        user = kwargs.pop('key')
+        secret = kwargs.pop('secret')
+        tenant_name = kwargs.pop('ex_tenant_name')
         identity = OSIdentity(provider, user, secret, ex_tenant_name=tenant_name, **kwargs)
         admin_driver = OSDriver(provider, identity, **kwargs)
         return admin_driver
