@@ -60,7 +60,7 @@ class ImageManager():
         manager = ImageManager(*args, **lc_driver_args)
         return manager
     @classmethod
-    def build_image_creds(cls, credentials):
+    def _build_image_creds(cls, credentials):
         """
         Credentials - dict()
 
