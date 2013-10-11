@@ -57,7 +57,20 @@ class EucaOSMigrater:
         if os_image:
             return os_image
 
-    def migrate_instance(self, euca_instance_id, name, local_download_dir='/tmp/', meta_name=None, euca_image_path=None, no_upload=False, keep_image=False):
+    def create_instance(self, euca_instance_id, name,
+        local_download_dir='/tmp/', meta_name=None, euca_image_path=None,
+        no_upload=False, keep_image=False):
+        return self.migrate_instance(
+                euca_instance_id, name,
+                local_download_dir=local_download_dir,
+                meta_name=meta_name,
+                euca_image_path=euca_image_path,
+                no_upload=no_upload,
+                keep_image=keep_image)
+
+    def migrate_instance(self, euca_instance_id, name, 
+            local_download_dir='/tmp/', meta_name=None, euca_image_path=None,
+            no_upload=False, keep_image=False):
         """
         TODO: Add in public, private_user_list, exclude_files
         """

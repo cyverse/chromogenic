@@ -7,7 +7,6 @@ from celery.decorators import task
 from threepio import logger
 
 from core.email import send_image_request_email
-from core.models.machine_request import process_machine_request
 
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
 from chromogenic.drivers.openstack import ImageManager as OSImageManager
@@ -59,7 +58,7 @@ def machine_export_task(machine_export):
     return (md5_sum, url)
 
 @task(name='machine_imaging_task', ignore_result=False)
-def machine_imaging_task(create_fn, args, kwargs):
-    new_image_id = create_fn(*args, **kwargs)
+def machine_imaging_task(manager, args, kwargs):
+    new_image_id = manager.create_instance(*args, **kwargs)
     return new_image_id
 
