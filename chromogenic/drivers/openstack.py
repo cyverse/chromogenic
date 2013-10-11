@@ -80,22 +80,34 @@ class ImageManager():
         img_args.pop('ex_project_name', None)
 
         return img_args
+    @classmethod
+    def _image_creds_convert(cls, *args, **kwargs):
+        creds = kwargs.copy()
+        key = creds.pop('key', None)
+        secret = creds.pop('secret', None)
+        tenant = creds.pop('ex_tenant_name', None)
+        if key and not creds.get('username'):
+            creds['username'] = key
+        if secret and not creds.get('password'):
+            creds['password'] = secret
+        if tenant and not creds.get('tenant_name'):
+            creds['tenant_name'] = tenant
+        return creds
 
     def __init__(self, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0:
             raise KeyError("Credentials missing in __init__. ")
-        logger.info(kwargs)
 
         self.admin_driver = self.build_admin_driver(**kwargs)
-        self.keystone, self.nova, self.glance = self.new_connection(*args, **kwargs)
+        creds = self._image_creds_convert(*args, **kwargs)
+        (self.keystone,\
+            self.nova,\
+            self.glance) = self.new_connection(*args, **creds)
 
     def build_admin_driver(self, **kwargs):
         OSProvider.set_meta()
         provider = OSProvider()
-        user = kwargs.pop('key')
-        secret = kwargs.pop('secret')
-        tenant_name = kwargs.pop('ex_tenant_name')
-        identity = OSIdentity(provider, user, secret, ex_tenant_name=tenant_name, **kwargs)
+        identity = OSIdentity(provider, **kwargs)
         admin_driver = OSDriver(provider, identity, **kwargs)
         return admin_driver
 
