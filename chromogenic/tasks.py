@@ -15,7 +15,7 @@ from chromogenic.drivers.virtualbox import ExportManager
 
 from django.conf import settings
 
-@task()
+@task(name='machine_export_task', ignore_result=False)
 def machine_export_task(machine_export):
     logger.debug("machine_export_task task started at %s." % datetime.now())
     machine_export.status = 'processing'
@@ -57,11 +57,22 @@ def machine_export_task(machine_export):
     logger.debug("machine_export_task task finished at %s." % datetime.now())
     return (md5_sum, url)
 
+@task(name='machine_migration_task', ignore_result=False)
+def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, args, kwargs):
+    #orig_creds = origCls._build_image_creds(orig_creds)
+    orig = origCls(**orig_creds)
+    #migrate_creds = migrateCls._build_image_creds(migrate_creds)
+    migrate = migrateCls(**migrate_creds)
+    #TODO: Select the correct migration class based on origCls && migrateCls
+    #TODO: Pass orig_creds and migrate_creds to the correct migration class
+    new_image_id = manager.create_image(*args, **kwargs)
+    return new_image_id
+
 @task(name='machine_imaging_task', ignore_result=False)
 def machine_imaging_task(managerCls, manager_creds, args, kwargs):
-    logger.info("Previous Creds:%s" % manager_creds)
-    manager_creds = managerCls._build_image_creds(manager_creds)
-    logger.info("New Creds:%s" % manager_creds)
+    #logger.info("Previous Creds:%s" % manager_creds)
+    #manager_creds = managerCls._build_image_creds(manager_creds)
+    #logger.info("New Creds:%s" % manager_creds)
     manager = managerCls(**manager_creds)
     new_image_id = manager.create_image(*args, **kwargs)
     return new_image_id
