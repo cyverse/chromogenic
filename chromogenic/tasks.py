@@ -58,7 +58,8 @@ def machine_export_task(machine_export):
     return (md5_sum, url)
 
 @task(name='machine_imaging_task', ignore_result=False)
-def machine_imaging_task(manager, args, kwargs):
+def machine_imaging_task(managerCls, manager_creds, args, kwargs):
+    manager = managerCls(**manager_creds)
     new_image_id = manager.create_image(*args, **kwargs)
     return new_image_id
 
