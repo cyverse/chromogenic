@@ -189,6 +189,7 @@ class ImageManager(BaseDriver):
         reservation, instance = self.get_reservation(instance_id)
         #Yes.
         download_args = self.parse_download_args(instance_id, image_name, **kwargs)
+        download_location = download_args['download_location']
         local_image_path = self.download_instance(
                 instance_id, **download_args)
 
@@ -211,7 +212,7 @@ class ImageManager(BaseDriver):
 
         return new_image_id
 
-    def download_instance(self, instance_id, download_location='/tmp', *args, **kwargs):
+    def download_instance(self, instance_id, download_location, *args, **kwargs):
         """
         Download an existing instance to local download directory
         Required Args:
@@ -568,29 +569,6 @@ class ImageManager(BaseDriver):
                           local_img_path])
         return local_img_path
 
-    def _node_controller_scp(self, node_controller_ip, remote_img_path,
-                             local_img_path, ssh_download_dir='/tmp'):
-        """
-        scp the RAW image from the NC to 'local_img_path'
-        """
-        try:
-            from core.models.node import NodeController
-            nc = NodeController.objects.get(alias=node_controller_ip)
-        except ImportError:
-            logger.exception("Unable to import or use node controller.")
-            return self._old_nc_scp(node_controller_ip,
-                                    remote_img_path, local_img_path)
-        except NodeController.DoesNotExist:
-            err_msg = "Node controller %s missing - Create a new record "
-            err_msg += "and add it's private key to use the image manager"
-            err_msg %= (node_controller_ip,)
-            logger.error(err_msg)
-            raise
-
-        return self.scp_remote_file(remote_img_path, local_img_path,
-                                    hostname=node_controller_ip, port=nc.port,
-                                    private_key=nc.private_ssh_key)
-
     def scp_remote_file(self, remote_path=None, local_path=None, 
                         user='root', hostname='localhost', port=22,
                         check_key=False, private_key=None):
@@ -604,6 +582,7 @@ class ImageManager(BaseDriver):
                 if os.path.exists(local_path):
                     logger.info("SCP Remote file canceled. Local file <%s> exists!"
                                 % local_path)
+                    return local_path
             scp_command_list = ['scp']
             if not check_key:
                 scp_command_list.extend(['-o', 'stricthostkeychecking=no'])
