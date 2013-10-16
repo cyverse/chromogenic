@@ -58,7 +58,7 @@ def machine_export_task(machine_export):
     return (md5_sum, url)
 
 @task(name='machine_migration_task', ignore_result=False)
-def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, imaging_args):
+def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
     #orig_creds = origCls._build_image_creds(orig_creds)
     orig = origCls(**orig_creds)
     #migrate_creds = migrateCls._build_image_creds(migrate_creds)
@@ -71,7 +71,7 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, imagi
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)
-def machine_imaging_task(managerCls, manager_creds, args, kwargs):
+def machine_imaging_task(managerCls, manager_creds, *args, **kwargs):
     manager = managerCls(**manager_creds)
     new_image_id = manager.create_image(*args, **kwargs)
     return new_image_id
