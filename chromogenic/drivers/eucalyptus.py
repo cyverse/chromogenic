@@ -167,7 +167,9 @@ class ImageManager():
         # Create our own sub-system inside the chosen directory
         # <dir>/<username>/<instance>
         # This helps us keep track of ... everything
-        download_location = os.path.join(download_location, owner, instance_id)
+        download_location = os.path.join(
+                download_location,
+                reservation.owner_id, instance_id)
         if not os.path.exists(download_location):
             os.makedirs(download_location)
 
@@ -176,7 +178,8 @@ class ImageManager():
         download_args['local_image_path'] = kwargs.get('local_image_path',os.path.join(download_location, '%s.img' % meta_name))
         #  remote_img_path - Override the default path to the image
         #  (On the Node Controller -- Must be exact path to the root disk)
-        download_args['remote_img_path'] = kwargs.get('remote_img_path',self._format_nc_path(owner, instance_id))
+        download_args['remote_img_path'] =
+        kwargs.get('remote_img_path',self._format_nc_path(reservation.owner_id, instance_id))
         return download_args
 
     def create_image(self, instance_id, image_name, *args, **kwargs):
@@ -227,7 +230,9 @@ class ImageManager():
 
         #  remote_img_path - Override the default path to the image
         #  (On the Node Controller -- Must be exact path to the root disk)
-        remote_img_path= kwargs.get('remote_img_path',self._format_nc_path(owner, instance_id))
+        remote_img_path= kwargs.get('remote_img_path',
+                                    self._format_nc_path(
+                                        reservation.owner_id, instance_id))
 
         #  node_scp_info - Dictionary for accessing the node controller, should
         #  contain: hostname, port, username(if not root), and a private
