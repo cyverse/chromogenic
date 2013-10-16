@@ -450,7 +450,7 @@ class ImageManager():
             prefix='/usr/local/eucalyptus', disk='root'):
         return os.path.join(prefix, owner, instance_id, disk)
 
-    def get_reservation_node(self, instance_id):
+    def get_instance_node(self, instance_id):
         (nodes, instances) = self._build_instance_nc_map()
         node_controller_ip = nodes[instance_id]
         logger.info("Instance found on Node: %s" % node_controller_ip)
