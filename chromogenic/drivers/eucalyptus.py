@@ -175,11 +175,12 @@ class ImageManager():
 
         download_args['download_location'] = download_location
         #  local_img_path - Override the default path to save the final image
-        download_args['local_image_path'] = kwargs.get('local_image_path',os.path.join(download_location, '%s.img' % meta_name))
+        download_args['local_image_path'] = kwargs.get('local_image_path',
+                os.path.join(download_location, '%s.img' % meta_name))
         #  remote_img_path - Override the default path to the image
         #  (On the Node Controller -- Must be exact path to the root disk)
-        download_args['remote_img_path'] =
-        kwargs.get('remote_img_path',self._format_nc_path(reservation.owner_id, instance_id))
+        download_args['remote_img_path'] = kwargs.get('remote_img_path',
+                self._format_nc_path(reservation.owner_id, instance_id))
         return download_args
 
     def create_image(self, instance_id, image_name, *args, **kwargs):
