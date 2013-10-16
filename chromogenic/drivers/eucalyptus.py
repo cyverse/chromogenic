@@ -199,7 +199,7 @@ class ImageManager(BaseDriver):
             self.mount_and_clean(
                     local_image_path,
                     os.path.join(download_location, 'mount/'),
-                    exclude=exclude)
+                    **kwargs)
 
         #upload image
         upload_args = self.parse_upload_args(instance_id, image_name, **kwargs)

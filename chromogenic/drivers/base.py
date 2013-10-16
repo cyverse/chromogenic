@@ -25,7 +25,7 @@ class BaseDriver():
         new_image_id = self.upload_local_image(local_image_path, image_name, **upload_args)
         return new_image_id
 
-    def clean_hook(self, image_path, mount_point, exclude=[]):
+    def clean_hook(self, image_path, mount_point, exclude=[], *args, **kwargs):
         """
         The image resides in <image_path> and is mounted to <mount_point>.
         Remove all filepaths listed in <exclude>
