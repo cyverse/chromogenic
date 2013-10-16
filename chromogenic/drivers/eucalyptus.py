@@ -189,7 +189,7 @@ class ImageManager():
         #Does the instance still exist?
         reservation, instance = self.get_reservation(instance_id)
         #Yes.
-        download_args = self.parse_download_args(reservation, instance, **kwargs)
+        download_args = self.parse_download_args(instance_id, **kwargs)
         local_image_path = self.download_instance(
                 instance_id, **download_args)
 
@@ -202,7 +202,7 @@ class ImageManager():
                     exclude=exclude)
 
         #upload image
-        upload_args = parse_upload_args(**kwargs)
+        upload_args = self.parse_upload_args(instance_id, **kwargs)
         new_image_id = self.upload_local_image(
             local_image_path, image_name, **upload_args)
 
