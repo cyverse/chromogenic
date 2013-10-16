@@ -29,6 +29,7 @@ from rtwo.drivers.common import _connect_to_keystone, _connect_to_nova,\
 
 from service.deploy import freeze_instance, sync_instance
 from service.tasks.driver import deploy_to
+from chromogenic.drivers.base import BaseDriver
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
                                   remove_vm_specific_data
@@ -36,7 +37,7 @@ from chromogenic.common import unmount_image, mount_image, remove_files,\
                                     fsck_qcow, get_latest_ramdisk
 from keystoneclient.exceptions import NotFound
 
-class ImageManager():
+class ImageManager(BaseDriver):
     """
     Convienence class that uses a combination of boto and euca2ools calls
     to remotely download an image from the cloud
@@ -59,6 +60,7 @@ class ImageManager():
         lc_driver_args.update(kwargs)
         manager = ImageManager(*args, **lc_driver_args)
         return manager
+
     @classmethod
     def _build_image_creds(cls, credentials):
         """
@@ -68,18 +70,18 @@ class ImageManager():
         """
         img_args = credentials.copy()
         #Required:
-        img_args.get('username')
-        img_args.get('password')
-        img_args.get('tenant_name')
-
-        img_args.get('auth_url')
-        img_args.get('region_name')
+        img_args['username']
+        img_args['password']
+        img_args['tenant_name']
+        img_args['auth_url']
+        img_args['region_name']
         #Ignored:
         img_args.pop('admin_url', None)
         img_args.pop('router_name', None)
         img_args.pop('ex_project_name', None)
 
         return img_args
+
     @classmethod
     def _image_creds_convert(cls, *args, **kwargs):
         creds = kwargs.copy()
@@ -98,20 +100,22 @@ class ImageManager():
         if len(args) == 0 and len(kwargs) == 0:
             raise KeyError("Credentials missing in __init__. ")
 
-        self.admin_driver = self.build_admin_driver(**kwargs)
+        self.admin_driver = self._build_admin_driver(**kwargs)
         creds = self._image_creds_convert(*args, **kwargs)
         (self.keystone,\
             self.nova,\
-            self.glance) = self.new_connection(*args, **creds)
+            self.glance) = self._new_connection(*args, **creds)
 
-    def build_admin_driver(self, **kwargs):
+
+
+    def _build_admin_driver(self, **kwargs):
         OSProvider.set_meta()
         provider = OSProvider()
         identity = OSIdentity(provider, **kwargs)
         admin_driver = OSDriver(provider, identity, **kwargs)
         return admin_driver
 
-    def new_connection(self, *args, **kwargs):
+    def _new_connection(self, *args, **kwargs):
         """
         Can be used to establish a new connection for all clients
         """
@@ -165,13 +169,13 @@ class ImageManager():
             raise Exception("Create_snapshot timeout. Operation exceeded 40m")
         return snapshot
 
-    def create_image(self, instance_id, name,
+    def create_image(self, instance_id, image_name,
                      local_download_dir='/tmp',
                      exclude=None,
                      snapshot_id=None,
                      **kwargs):
         #Step 1: Build the snapshot
-        ss_name = 'TEMP_SNAPSHOT <%s>' % name
+        ss_name = 'TEMP_SNAPSHOT <%s>' % image_name
         if not snapshot_id:
             snapshot = self.create_snapshot(instance_id, ss_name, **kwargs)
         else:
@@ -183,7 +187,7 @@ class ImageManager():
         if not os.path.exists(local_user_dir):
             os.makedirs(local_user_dir)
         #Step 3: Download local copy of snapshot
-        local_image = os.path.join(local_user_dir, '%s.qcow2' % name)
+        local_image = os.path.join(local_user_dir, '%s.qcow2' % image_name)
         logger.debug("Snapshot downloading to %s" % local_image)
         with open(local_image,'w') as f:
             for chunk in snapshot.data():
@@ -200,7 +204,7 @@ class ImageManager():
         # with seperate kernel & ramdisk
         prev_kernel = snapshot.properties['kernel_id']
         prev_ramdisk = snapshot.properties['ramdisk_id']
-        new_image = self.upload_image(local_image, name, 'ami', 'ami', True, {
+        new_image = self.upload_image(local_image, image_name, 'ami', 'ami', True, {
             'kernel_id': prev_kernel,
             'ramdisk_id': prev_ramdisk})
         #Step 6: Delete the snapshot

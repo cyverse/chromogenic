@@ -24,6 +24,11 @@ from chromogenic.common import run_command
 from chromogenic.common import mount_image
 from chromogenic.convert import xen_to_kvm_ubuntu
 
+
+def instance_migration(orig_manager, orig_creds, 
+                       dest_manager, dest_creds, migration_args):
+
+    
 class EucaOSMigrater:
 
     def __init__(self, euca_manager, os_manager):

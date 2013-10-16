@@ -63,15 +63,14 @@ class ImageManager():
         """
         img_args = credentials.copy()
         #Required args:
-        img_args.get('key')
-        img_args.get('secret')
-        #logger.info(settings._wrapped.__dict__)
-        img_args.get('config_path')
-        img_args.get('ec2_cert_path')
-        img_args.get('ec2_url')
-        img_args.get('euca_cert_path')
-        img_args.get('pk_path')
-        img_args.get('s3_url')
+        img_args['key']
+        img_args['secret']
+        img_args['config_path']
+        img_args['ec2_cert_path']
+        img_args['ec2_url']
+        img_args['euca_cert_path']
+        img_args['pk_path']
+        img_args['s3_url']
         #Root dir to find extras/...
         img_args.get('extras_root', settings.PROJECT_ROOT)
         #Remove if exists:
@@ -94,133 +93,149 @@ class ImageManager():
         self.s3_conn = self._boto_s3_conn(key, secret, s3_url)
         self.image_conn = self._boto_ec2_conn(key, secret, ec2_url)
 
-    def create_image(self, instance_id, image_name, public=True,
-                     private_user_list=[], exclude=[], kernel=None,
-                     ramdisk=None, meta_name=None,
-                     local_download_dir='/tmp', local_image_path=None,
-                     clean_image=True, remote_img_path=None, keep_image=False):
+    def parse_upload_args(self, instance_id, **kwargs):
+        reservation, instance = self.find_instance(instance_id)
+        upload_args = {}
+
+        #  kernel  - Associated Kernel for image
+        #  (Default is instance.kernel)
+        upload_args['kernel'] = kwargs.get('kernel',instance.kernel)
+
+        #  ramdisk - Associated Ramdisk for image
+        #  (Default is instance.ramdisk)
+        upload_args['ramdisk'] = kwargs.get('ramdisk',instance.ramdisk)
+
+        #  public - Should image be accessible for other users?
+        #  (Default: False)
+        upload_args['public'] = True if kwargs.get('public') else False
+
+        #  exclude  - List of files that should be deleted when the image is
+        #  cleaned
+        #  (Default: [])
+        upload_args['exclude'] = kwargs.get('exclude',[])
+
+        #  private_user_list  - List of users who should get access
+        #  (Default: [])
+        private_user_list = kwargs.get('private_user_list',[])
+
+        if reservation.owner_id not in private_user_list:
+            private_user_list.append(reservation.owner_id)
+        upload_args['private_user_list'] = private_user_list
+
+        #  meta_name - Override the default naming convention
+        meta_name= kwargs.get('meta_name',
+                self._format_meta_name(image_name, reservation.owner_id,
+                                       creator='admin'))
+        upload_args['meta_name'] = meta_name
+
+        #  local_img_path - Override the default path to save the final image
+        upload_args['local_image_path'] = kwargs.get('local_image_path',os.path.join(download_location, '%s.img' % meta_name))
+
+        return upload_args
+
+    def parse_download_args(self, instance_id, **kwargs):
+        reservation, instance = self.find_instance(instance_id)
+        #Start defining the **kwargs, setting defaults when necessary
+        download_args = {}
+        #REQUIRED kwargs:
+        #  node_scp_info - Dictionary for accessing the node controller,
+        #  should contain: 
+        #    * hostname, 
+        #    * port,
+        #    * username(if not root),
+        #    * a private ssh_key that allows access to the box. (if necessary)
+        if not kwargs.has_key('node_scp_info'):
+            raise Exception("Imaging Aborted - node_scp_info missing, cannot"
+                            " download the instance without it!")
+        for key in ['hostname','port','private_key']:
+            if  not kwargs['node_scp_info'].has_key(key):
+                raise Exception(
+                        "Imaging Aborted - node_scp_info missing KEY<%s>, cannot"
+                        " download the instance without it!" % key)
+
+        download_args['node_scp_info'] = kwargs['node_scp_info']
+        #Optional Args:
+        #  meta_name - Override the default naming convention
+        meta_name= kwargs.get('meta_name',
+                self._format_meta_name(image_name, reservation.owner_id,
+                                       creator='admin'))
+        download_args['meta_name'] = meta_name
+        #  download_location - Override the default download dir
+        #  (All files will be temporarilly stored here, then deleted)
+        download_location= kwargs.get('download_location','/tmp')
+
+        # Create our own sub-system inside the chosen directory
+        # <dir>/<username>/<instance>
+        # This helps us keep track of ... everything
+        download_location = os.path.join(download_location, owner, instance_id)
+        if not os.path.exists(download_location):
+            os.makedirs(download_location)
+
+        download_args['download_location'] = download_location
+        #  local_img_path - Override the default path to save the final image
+        download_args['local_image_path'] = kwargs.get('local_image_path',os.path.join(download_location, '%s.img' % meta_name))
+        #  remote_img_path - Override the default path to the image
+        #  (On the Node Controller -- Must be exact path to the root disk)
+        download_args['remote_img_path'] = kwargs.get('remote_img_path',self._format_nc_path(owner, instance_id))
+        return download_args
+
+    def create_image(self, instance_id, image_name, *args, **kwargs):
         """
         Creates an image of a running instance
         Required Args:
             instance_id - The instance that will be imaged
             image_name - The name of the image
-        Optional Args (That are required for euca):
-            public - Should image be accessible for other users?
-            (Default: True)
-            private_user_list  - List of users who should get access
-            (Default: [])
-            kernel  - Associated Kernel for image
-            (Default is instance.kernel)
-            ramdisk - Associated Ramdisk for image
-            (Default is instance.ramdisk)
-        Optional Args:
-            meta_name - Override the default naming convention
-            local_download_dir - Override the default download dir
-            (All files will be temporarilly stored here, then deleted
-            remote_img_path - Override the default path to the image
-            (On the Node Controller -- Must be exact to the image file (root))
         """
-
-        try:
-            reservation = self.find_instance(instance_id)[0]
-            #Collect information about instance to fill arguments
-            owner = reservation.owner_id
-            instance_kernel = reservation.instances[0].kernel
-            instance_ramdisk = reservation.instances[0].ramdisk
-            parent_emi = reservation.instances[0].image_id
-        except IndexError:
-            raise Exception("No Instance Found with ID %s" % instance_id)
-
-        logger.info("Instance %s belongs to: %s" % (instance_id, owner))
-        #Prepare private list, if necessary
-        if not public and owner not in private_user_list:
-            private_user_list.append(owner)
-        # Collect kernel, ramdisk
-        if not kernel:
-            kernel = instance_kernel
-        if not ramdisk:
-            ramdisk = instance_ramdisk
-
-        #Format paths for downloading
-        if not remote_img_path:
-            remote_img_path = self._format_nc_path(owner, instance_id)
-        if not meta_name:
-            #meta strings should match current iPlant
-            #image naming convention
-            meta_name = self._format_meta_name(image_name, owner, creator='admin')
-
-        #Image doesn't exist locally, download it
-        if not local_image_path:
-            local_download_dir = os.path.join(local_download_dir, owner, instance_id)
-            if not os.path.exists(local_download_dir):
-                os.makedirs(local_download_dir)
-            local_image_path = os.path.join(local_download_dir, '%s.img' % meta_name)
-
-            ##Run sub-scripts to retrieve,
-            node_controller_ip = self._find_node(instance_id)
-            self._retrieve_instance(node_controller_ip,
-                                        local_image_path, remote_img_path)
+        #Does the instance still exist?
+        reservation, instance = self.find_instance(instance_id)
+        #Yes.
+        download_args = self.parse_download_args(reservation, instance, **kwargs)
+        local_image_path = self.download_instance(
+                instance_id, **download_args)
 
         #ASSERT: by this line -- local_image_path contains a complete RAW img
         # mount and clean image 
-        if clean_image:
-            self._clean_local_image(
-                local_image_path, 
-                os.path.join(local_download_dir, 'mount/'),
-                exclude=exclude)
+        if kwargs.get('clean_image',True):
+            self.mount_and_clean(
+                    local_image_path,
+                    os.path.join(download_location, 'mount/'),
+                    exclude=exclude)
 
         #upload image
-        new_image_id = self._upload_instance(
-            local_image_path, kernel, ramdisk, local_download_dir, parent_emi,
-            meta_name, image_name, public, private_user_list)
+        upload_args = parse_upload_args(**kwargs)
+        new_image_id = self.upload_local_image(
+            local_image_path, image_name, **upload_args)
 
         #Cleanup, return
-        if not keep_image:
-            wildcard_remove(os.path.join(local_download_dir, '%s*' % meta_name))
+        if not kwargs.get('keep_image',False):
+            wildcard_remove(os.path.join(download_location, '%s*' % meta_name))
 
         return new_image_id
 
-    def download_instance(self, download_dir, instance_id,
-                          local_img_path=None, remote_img_path=None,
-                          meta_name=None):
+    def download_instance(self, instance_id, download_location='/tmp', *args, **kwargs):
         """
         Download an existing instance to local download directory
         Required Args:
-            download_dir - The directory the image will be saved to
             instance_id - The instance ID to be downloaded (i-12341234)
         Optional Args:
-            local_img_path - The path to save the image file when copied
-            remote_img_path - The path to find the image file
-            (on the node controller)
+            download_location - The exact path where image will be downloaded
+            remote_img_path - The override path (to find the image file on the node controller)
+            node_scp_info - Dictionary for accessing the node controller by SSH
         """
+        reservation, instance = self.find_instance(instance_id)
+        owner = reservation.owner_id
 
-        try:
-            reservation = self.find_instance(instance_id)[0]
-            instance = reservation.instances[0]
-            owner = reservation.owner_id
-        except IndexError:
-            raise Exception("No Instance Found with ID %s" % instance_id)
+        #  remote_img_path - Override the default path to the image
+        #  (On the Node Controller -- Must be exact path to the root disk)
+        remote_img_path= kwargs.get('remote_img_path',self._format_nc_path(owner, instance_id))
 
-        download_dir = os.path.join(download_dir, owner, instance_id)
-        for dir_path in [download_dir]:
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path)
+        #  node_scp_info - Dictionary for accessing the node controller, should
+        #  contain: hostname, port, username(if not root), and a private
+        #  ssh_key that allows access to the box.
+        node_scp_info= kwargs.get('node_scp_info',{})
 
-        if not meta_name:
-            meta_name = self._format_meta_name(instance.id, owner)
-
-        if not local_img_path:
-            #Format empty meta strings to match
-            #current iPlant imaging standard, if not given
-            local_img_path = '%s/%s.img' % (download_dir, meta_name)
-
-        if not remote_img_path:
-            remote_img_path = self._format_nc_path(owner, instance_id)
-
-        node_controller_ip = self._find_node(instance_id)
-        return download_dir, self._retrieve_instance(node_controller_ip,
-                                                     local_img_path,
-                                                     remote_img_path)
+        #Returns download_location
+        return self.scp_remote_file(download_location,remote_img_path, **node_scp_info)
 
     def download_image(self, download_dir, image_id):
         """
@@ -435,7 +450,7 @@ class ImageManager():
             prefix='/usr/local/eucalyptus', disk='root'):
         return os.path.join(prefix, owner, instance_id, disk)
 
-    def _find_node(self, instance_id):
+    def find_instance_node(self, instance_id):
         (nodes, instances) = self._build_instance_nc_map()
         node_controller_ip = nodes[instance_id]
         logger.info("Instance found on Node: %s" % node_controller_ip)
@@ -457,20 +472,8 @@ class ImageManager():
         logger.debug("Deleted bucket %s" % bucket_name)
         return True
 
-    def _retrieve_instance(self, node_controller_ip,
-                        local_img_path, remote_img_path):
-        """
-        Downloads image to local disk
-        """
-        #SCP remote file only if file does not exist locally
-        if not os.path.exists(local_img_path):
-            return self._node_controller_scp(node_controller_ip,
-                                             remote_img_path,
-                                             local_img_path)
-        return local_img_path
-
         
-    def _upload_instance(self, image_path, kernel, ramdisk,
+    def upload_local_image(self, image_path, kernel, ramdisk,
                             destination_path, parent_emi, bucket_name,
                             image_name, public, private_user_list):
         """
@@ -520,7 +523,7 @@ class ImageManager():
         #In order to use the image name we must change the name during upload
         # to match the 'metadata' criteria for an image on atmosphere
         os.rename(image_path,new_image_path)
-        new_image_id = self._upload_instance(new_image_path, kernel_id, ramdisk_id,
+        new_image_id = self.upload_local_image(new_image_path, kernel_id, ramdisk_id,
                                              download_dir, None, bucket_name,
                                              new_image_name, public,
                                              private_users) 
@@ -583,24 +586,46 @@ class ImageManager():
             logger.error(err_msg)
             raise
 
-        #SCP the file if an SSH Key has been added!
-        ssh_file_loc = '%s/%s' % (ssh_download_dir, 'tmp_ssh.key')
-        if nc.ssh_key_added():
-            ssh_key_file = open(ssh_file_loc, 'w')
-            run_command(['echo', nc.private_ssh_key], stdout=ssh_key_file)
-            ssh_key_file.close()
-            run_command(['whoami'])
-            run_command(['chmod', '600', ssh_file_loc])
-            node_controller_ip = nc.hostname
-            scp_command_list = ['scp', '-o', 'stricthostkeychecking=no', '-i',
-                              ssh_file_loc, '-P1657',
-                              'root@%s:%s'
-                              % (node_controller_ip, remote_img_path),
-                              local_img_path]
+        return self.scp_remote_file(remote_img_path, local_img_path,
+                                    hostname=node_controller_ip, port=nc.port,
+                                    private_key=nc.private_ssh_key)
+
+    def scp_remote_file(self, remote_path=None, local_path=None, 
+                        user='root', hostname='localhost', port=22,
+                        check_key=False, private_key=None):
+        """
+        Build up the SCP command based on arguments
+        """
+        # This SSH key file may be used and will self-destruct after scp is complete
+        ssh_file_loc = '/tmp/_chromo_tmp_ssh.key'
+        try:
+            if local_path:
+                if os.path.exists(local_path):
+                    logger.info("SCP Remote file canceled. Local file <%s> exists!"
+                                % local_path)
+            scp_command_list = ['scp']
+            if not check_key:
+                scp_command_list.extend(['-o', 'stricthostkeychecking=no'])
+            if private_key:
+                #SCP the file if an SSH Key has been added!
+                with open(ssh_file_loc, 'w') as ssh_key_file:
+                    run_command(['echo', private_key], stdout=ssh_key_file)
+                #run_command(['whoami']) # - Useful when debugging ssh problems
+                # SSH keys require specific permissions
+                run_command(['chmod', '600', ssh_file_loc])
+                scp_command_list.extend(['-i', ssh_file_loc])
+            if port != 22:
+                scp_command_list.extend(['-P%s' % port)
+            scp_command_list.extend(['%s@%s:%s' % (user, hostname, remote_path)])
+            #Where should the file go
+            scp_command_list.extend([local_path]
+            #Print and execute
             logger.info(' '.join(map(str,scp_command_list)))
             run_command(scp_command_list)
-            run_command(['rm', '-rf', ssh_file_loc])
-            return local_img_path
+            return local_path
+        finally:
+            if private_key:
+                run_command(['rm', '-rf', ssh_file_loc])
 
     """
     Indirect Create Image Functions -
