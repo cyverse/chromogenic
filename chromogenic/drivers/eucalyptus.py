@@ -94,7 +94,7 @@ class ImageManager():
         self.image_conn = self._boto_ec2_conn(key, secret, ec2_url)
 
     def parse_upload_args(self, instance_id, **kwargs):
-        reservation, instance = self.find_instance(instance_id)
+        reservation, instance = self.get_reservation(instance_id)
         upload_args = {}
 
         #  kernel  - Associated Kernel for image
@@ -134,7 +134,7 @@ class ImageManager():
         return upload_args
 
     def parse_download_args(self, instance_id, **kwargs):
-        reservation, instance = self.find_instance(instance_id)
+        reservation, instance = self.get_reservation(instance_id)
         #Start defining the **kwargs, setting defaults when necessary
         download_args = {}
         #REQUIRED kwargs:
@@ -187,7 +187,7 @@ class ImageManager():
             image_name - The name of the image
         """
         #Does the instance still exist?
-        reservation, instance = self.find_instance(instance_id)
+        reservation, instance = self.get_reservation(instance_id)
         #Yes.
         download_args = self.parse_download_args(reservation, instance, **kwargs)
         local_image_path = self.download_instance(
@@ -222,7 +222,7 @@ class ImageManager():
             remote_img_path - The override path (to find the image file on the node controller)
             node_scp_info - Dictionary for accessing the node controller by SSH
         """
-        reservation, instance = self.find_instance(instance_id)
+        reservation, instance = self.get_reservation(instance_id)
         owner = reservation.owner_id
 
         #  remote_img_path - Override the default path to the image
@@ -450,7 +450,7 @@ class ImageManager():
             prefix='/usr/local/eucalyptus', disk='root'):
         return os.path.join(prefix, owner, instance_id, disk)
 
-    def find_instance_node(self, instance_id):
+    def get_reservation_node(self, instance_id):
         (nodes, instances) = self._build_instance_nc_map()
         node_controller_ip = nodes[instance_id]
         logger.info("Instance found on Node: %s" % node_controller_ip)
@@ -987,6 +987,12 @@ class ImageManager():
     def find_instance(self, name):
         return [m for m in self.list_instances()
                 if name.lower() in m.instances[0].id.lower()]
+
+    def get_reservation(self, instance_id):
+        for res in self.list_instances():
+            for instance in res.instances:
+                if instance_id.lower() in instance.id.lower():
+                    return (res, instance)
 
     def list_images(self):
         euca_conn = self.euca.make_connection()
