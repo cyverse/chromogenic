@@ -93,7 +93,7 @@ class ImageManager():
         self.s3_conn = self._boto_s3_conn(key, secret, s3_url)
         self.image_conn = self._boto_ec2_conn(key, secret, ec2_url)
 
-    def parse_upload_args(self, instance_id, **kwargs):
+    def parse_upload_args(self, instance_id, image_name, **kwargs):
         reservation, instance = self.get_reservation(instance_id)
         upload_args = {}
 
@@ -133,7 +133,7 @@ class ImageManager():
 
         return upload_args
 
-    def parse_download_args(self, instance_id, **kwargs):
+    def parse_download_args(self, instance_id, image_name, **kwargs):
         reservation, instance = self.get_reservation(instance_id)
         #Start defining the **kwargs, setting defaults when necessary
         download_args = {}
@@ -189,7 +189,7 @@ class ImageManager():
         #Does the instance still exist?
         reservation, instance = self.get_reservation(instance_id)
         #Yes.
-        download_args = self.parse_download_args(instance_id, **kwargs)
+        download_args = self.parse_download_args(instance_id, image_name, **kwargs)
         local_image_path = self.download_instance(
                 instance_id, **download_args)
 
@@ -202,7 +202,7 @@ class ImageManager():
                     exclude=exclude)
 
         #upload image
-        upload_args = self.parse_upload_args(instance_id, **kwargs)
+        upload_args = self.parse_upload_args(instance_id, image_name, **kwargs)
         new_image_id = self.upload_local_image(
             local_image_path, image_name, **upload_args)
 
