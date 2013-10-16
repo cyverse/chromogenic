@@ -27,6 +27,7 @@ from chromogenic.convert import xen_to_kvm_ubuntu
 
 def instance_migration(orig_manager, orig_creds, 
                        dest_manager, dest_creds, migration_args):
+    pass
 
     
 class EucaOSMigrater:

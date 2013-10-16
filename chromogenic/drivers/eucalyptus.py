@@ -615,10 +615,10 @@ class ImageManager():
                 run_command(['chmod', '600', ssh_file_loc])
                 scp_command_list.extend(['-i', ssh_file_loc])
             if port != 22:
-                scp_command_list.extend(['-P%s' % port)
+                scp_command_list.extend(['-P%s' % port])
             scp_command_list.extend(['%s@%s:%s' % (user, hostname, remote_path)])
             #Where should the file go
-            scp_command_list.extend([local_path]
+            scp_command_list.extend([local_path])
             #Print and execute
             logger.info(' '.join(map(str,scp_command_list)))
             run_command(scp_command_list)
