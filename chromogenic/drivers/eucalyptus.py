@@ -33,19 +33,14 @@ from boto.s3.key import Key
 
 from euca2ools import Euca2ool, FileValidationError
 
-from chromogenic.common import sed_delete_multi, sed_delete_one
-from chromogenic.common import sed_replace, sed_prepend
-
 from chromogenic.common import run_command, wildcard_remove
-from chromogenic.common import mount_image, remove_files, get_latest_ramdisk
-from chromogenic.clean import remove_user_data, remove_atmo_data,\
-                                  remove_vm_specific_data
+from chromogenic.common import mount_image, get_latest_ramdisk
 from chromogenic.convert import xen_to_kvm_centos
 from django.conf import settings
 from threepio import logger
+from chromogenic.drivers.base import BaseDriver
 
-
-class ImageManager():
+class ImageManager(BaseDriver):
     """
     Convienence class that uses a combination of boto and euca2ools calls
     to remotely download an image form the cloud
@@ -241,7 +236,7 @@ class ImageManager():
         node_scp_info= kwargs.get('node_scp_info',{})
 
         #Returns download_location
-        return self.scp_remote_file(download_location,remote_img_path, **node_scp_info)
+        return self.scp_remote_file(remote_img_path, download_location, **node_scp_info)
 
     def download_image(self, download_dir, image_id):
         """
@@ -656,37 +651,6 @@ class ImageManager():
                         % rm_file)
             filepath = filepath[1:]
         return filepath
-
-    def _clean_local_image(self, image_path, mount_point, exclude=[]):
-        """
-        NOTE: When adding to this list,
-        NEVER ADD A LEADING SLASH to the files. Doing so will lead to DANGER!
-        """
-        #Prepare the paths
-        if not os.path.exists(image_path):
-            logger.error("Could not find local image!")
-            raise Exception("Image file not found")
-
-        if not os.path.exists(mount_point):
-            os.makedirs(mount_point)
-
-        #Mount the directory
-        out, err = mount_image(image_path, mount_point)
-        if err:
-            raise Exception("Encountered errors mounting the image: %s" % err)
-
-        #Begin removing user-specified files (Matches wildcards)
-        if exclude and exclude[0]:
-            logger.info("User-initiated files to be removed: %s" % exclude)
-            remove_files(exclude, mount_point)
-
-        remove_user_data(mount_point)
-        remove_atmo_data(mount_point)
-        remove_vm_specific_data(mount_point)
-
-        #Don't forget to unmount!
-        run_command(['umount', mount_point])
-        return
 
     def _bundle_image(self, image_path, destination_path, kernel=None,
                       ramdisk=None, user=None, target_arch='x86_64',

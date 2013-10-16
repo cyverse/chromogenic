@@ -1,3 +1,8 @@
+from chromogenic.common import mount_image, remove_files
+from chromogenic.common import run_command
+from chromogenic.clean import remove_user_data, remove_atmo_data,\
+                                  remove_vm_specific_data
+
 class BaseDriver():
     def parse_download_args(self, instance_id, **kwargs):
         raise NotImplementedError()
@@ -31,6 +36,7 @@ class BaseDriver():
         if exclude and exclude[0]:
             logger.info("User-initiated files to be removed: %s" % exclude)
             remove_files(exclude, mount_point)
+        return
 
     def mount_and_clean(self, image_path, mount_point, *args, **kwargs):
         """
