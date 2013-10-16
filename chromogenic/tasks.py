@@ -71,8 +71,8 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)
-def machine_imaging_task(managerCls, manager_creds, *args, **kwargs):
+def machine_imaging_task(managerCls, manager_creds, create_img_args):
     manager = managerCls(**manager_creds)
-    new_image_id = manager.create_image(*args, **kwargs)
+    new_image_id = manager.create_image(**create_img_args)
     return new_image_id
 
