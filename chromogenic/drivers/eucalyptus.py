@@ -92,6 +92,14 @@ class ImageManager(BaseDriver):
         reservation, instance = self.get_reservation(instance_id)
         upload_args = {}
 
+p
+        #  local_img_path - File path of the local image
+        local_image_path = kwargs.get('download_location',None)
+        if not local_image_path:
+            local_image_path = kwargs.get('local_image_path')
+        if not local_image_path:
+            raise Exception("Could not find the local image path")
+        upload_args['local_image_path'] = local_image_path
         #  kernel  - Associated Kernel for image
         #  (Default is instance.kernel)
         upload_args['kernel'] = kwargs.get('kernel',instance.kernel)
@@ -123,8 +131,7 @@ class ImageManager(BaseDriver):
                                        creator='admin'))
         upload_args['meta_name'] = meta_name
 
-        #  local_img_path - Override the default path to save the final image
-        upload_args['local_image_path'] = kwargs.get('local_image_path',os.path.join(download_location, '%s.img' % meta_name))
+
 
         return upload_args
 
@@ -155,23 +162,25 @@ class ImageManager(BaseDriver):
                 self._format_meta_name(image_name, reservation.owner_id,
                                        creator='admin'))
         download_args['meta_name'] = meta_name
-        #  download_location - Override the default download dir
+
+        #  download_dir - Override the default download dir
         #  (All files will be temporarilly stored here, then deleted)
-        download_location= kwargs.get('download_location','/tmp')
+        download_dir= kwargs.get('download_dir','/tmp')
 
         # Create our own sub-system inside the chosen directory
         # <dir>/<username>/<instance>
         # This helps us keep track of ... everything
-        download_location = os.path.join(
-                download_location,
+        download_dir = os.path.join(
+                download_dir,
                 reservation.owner_id, instance_id)
-        if not os.path.exists(download_location):
-            os.makedirs(download_location)
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
 
-        download_args['download_location'] = download_location
+        download_args['download_dir'] = download_dir
+
         #  local_img_path - Override the default path to save the final image
-        download_args['local_image_path'] = kwargs.get('local_image_path',
-                os.path.join(download_location, '%s.img' % meta_name))
+        download_args['download_location'] = kwargs.get('download_location',
+                os.path.join(download_dir, '%s.img' % meta_name))
         #  remote_img_path - Override the default path to the image
         #  (On the Node Controller -- Must be exact path to the root disk)
         download_args['remote_img_path'] = kwargs.get('remote_img_path',
@@ -189,22 +198,25 @@ class ImageManager(BaseDriver):
         reservation, instance = self.get_reservation(instance_id)
         #Yes.
         download_args = self.parse_download_args(instance_id, image_name, **kwargs)
-        download_location = download_args['download_location']
-        local_image_path = self.download_instance(
+        download_location = self.download_instance(
                 instance_id, **download_args)
-
-        #ASSERT: by this line -- local_image_path contains a complete RAW img
+        download_dir = download_args['download_dir']
+        #ASSERT: by this line -- download_location contains a complete RAW img
         # mount and clean image 
         if kwargs.get('clean_image',True):
             self.mount_and_clean(
-                    local_image_path,
-                    os.path.join(download_location, 'mount/'),
+                    download_location,
+                    os.path.join(download_dir, 'mount/'),
                     **kwargs)
 
         #upload image
-        upload_args = self.parse_upload_args(instance_id, image_name, **kwargs)
+        upload_args = self.parse_upload_args(
+                instance_id, image_name, 
+                download_dir=download_dir,
+                local_image_path=download_location,
+                **kwargs)
         new_image_id = self.upload_local_image(
-            local_image_path, image_name, **upload_args)
+            upload_args['local_image_path'], image_name, **upload_args)
 
         #Cleanup, return
         if not kwargs.get('keep_image',False):
@@ -475,7 +487,7 @@ class ImageManager(BaseDriver):
         return True
 
         
-    def upload_local_image(self, image_path, kernel, ramdisk,
+    def upload_local_image(self, image_location, image_name, kernel, ramdisk,
                             destination_path, parent_emi, bucket_name,
                             image_name, public, private_user_list):
         """
@@ -508,7 +520,7 @@ class ImageManager(BaseDriver):
                 logger.exception(call_failed)
         return new_image_id
 
-    def _upload_new_image(self, new_image_name, image_path, 
+    def upload_full_image(self, new_image_name, image_path, 
                           kernel_path, ramdisk_path, bucket_name,
                           download_dir='/tmp', private_users=[], uploaded_by='admin'):
         public = False
@@ -525,7 +537,7 @@ class ImageManager(BaseDriver):
         #In order to use the image name we must change the name during upload
         # to match the 'metadata' criteria for an image on atmosphere
         os.rename(image_path,new_image_path)
-        new_image_id = self.upload_local_image(new_image_path, kernel_id, ramdisk_id,
+        new_image_id = self.upload_local_image(new_image_path, new_image_name, kernel_id, ramdisk_id,
                                              download_dir, None, bucket_name,
                                              new_image_name, public,
                                              private_users) 
@@ -555,19 +567,6 @@ class ImageManager(BaseDriver):
         logger.info("New image created! ID:%s"
                     % new_image_id)
         return new_image_id
-
-
-    def _old_nc_scp(self, node_controller_ip, remote_img_path, local_img_path):
-        """
-        Runs a straight SCP from node controller
-        NOTE: no-password, SSH key access to the node controller
-        FROM THIS MACHINE is REQUIRED
-        """
-        node_controller_ip = node_controller_ip.replace('172.30', '128.196')
-        run_command(['scp', '-P1657',
-                          'root@%s:%s' % (node_controller_ip, remote_img_path),
-                          local_img_path])
-        return local_img_path
 
     def scp_remote_file(self, remote_path=None, local_path=None, 
                         user='root', hostname='localhost', port=22,
