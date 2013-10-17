@@ -1,3 +1,5 @@
+import os
+
 from chromogenic.common import mount_image, remove_files
 from chromogenic.common import run_command
 from chromogenic.clean import remove_user_data, remove_atmo_data,\

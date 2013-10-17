@@ -88,52 +88,39 @@ class ImageManager(BaseDriver):
         self.s3_conn = self._boto_s3_conn(key, secret, s3_url)
         self.image_conn = self._boto_ec2_conn(key, secret, ec2_url)
 
-    def parse_upload_args(self, instance_id, image_name, **kwargs):
+
+    def create_image(self, instance_id, image_name, *args, **kwargs):
+        """
+        Creates an image of a running instance
+        Required Args:
+            instance_id - The instance that will be imaged
+            image_name - The name of the image
+        """
+        #Does the instance still exist?
         reservation, instance = self.get_reservation(instance_id)
-        upload_args = {}
+        #Yes.
+        download_args = self.parse_download_args(instance_id, image_name, **kwargs)
+        download_location = self.download_instance(
+                instance_id, **download_args)
+        download_dir = download_args['download_dir']
+        #ASSERT: by this line -- download_location contains a complete RAW img
+        # mount and clean image 
+        if kwargs.get('clean_image',True):
+            self.mount_and_clean(
+                    download_location,
+                    os.path.join(download_dir, 'mount/'),
+                    **kwargs)
 
-p
-        #  local_img_path - File path of the local image
-        local_image_path = kwargs.get('download_location',None)
-        if not local_image_path:
-            local_image_path = kwargs.get('local_image_path')
-        if not local_image_path:
-            raise Exception("Could not find the local image path")
-        upload_args['local_image_path'] = local_image_path
-        #  kernel  - Associated Kernel for image
-        #  (Default is instance.kernel)
-        upload_args['kernel'] = kwargs.get('kernel',instance.kernel)
+        #upload image
+        upload_kwargs = self.parse_upload_args(
+                instance_id, image_name, download_location, **kwargs)
+        new_image_id = self.upload_local_image(**upload_kwargs)
 
-        #  ramdisk - Associated Ramdisk for image
-        #  (Default is instance.ramdisk)
-        upload_args['ramdisk'] = kwargs.get('ramdisk',instance.ramdisk)
+        #Cleanup, return
+        if not kwargs.get('keep_image',False):
+            wildcard_remove(os.path.join(download_location, '%s*' % meta_name))
 
-        #  public - Should image be accessible for other users?
-        #  (Default: False)
-        upload_args['public'] = True if kwargs.get('public') else False
-
-        #  exclude  - List of files that should be deleted when the image is
-        #  cleaned
-        #  (Default: [])
-        upload_args['exclude'] = kwargs.get('exclude',[])
-
-        #  private_user_list  - List of users who should get access
-        #  (Default: [])
-        private_user_list = kwargs.get('private_user_list',[])
-
-        if reservation.owner_id not in private_user_list:
-            private_user_list.append(reservation.owner_id)
-        upload_args['private_user_list'] = private_user_list
-
-        #  meta_name - Override the default naming convention
-        meta_name= kwargs.get('meta_name',
-                self._format_meta_name(image_name, reservation.owner_id,
-                                       creator='admin'))
-        upload_args['meta_name'] = meta_name
-
-
-
-        return upload_args
+        return new_image_id
 
     def parse_download_args(self, instance_id, image_name, **kwargs):
         reservation, instance = self.get_reservation(instance_id)
@@ -187,43 +174,6 @@ p
                 self._format_nc_path(reservation.owner_id, instance_id))
         return download_args
 
-    def create_image(self, instance_id, image_name, *args, **kwargs):
-        """
-        Creates an image of a running instance
-        Required Args:
-            instance_id - The instance that will be imaged
-            image_name - The name of the image
-        """
-        #Does the instance still exist?
-        reservation, instance = self.get_reservation(instance_id)
-        #Yes.
-        download_args = self.parse_download_args(instance_id, image_name, **kwargs)
-        download_location = self.download_instance(
-                instance_id, **download_args)
-        download_dir = download_args['download_dir']
-        #ASSERT: by this line -- download_location contains a complete RAW img
-        # mount and clean image 
-        if kwargs.get('clean_image',True):
-            self.mount_and_clean(
-                    download_location,
-                    os.path.join(download_dir, 'mount/'),
-                    **kwargs)
-
-        #upload image
-        upload_args = self.parse_upload_args(
-                instance_id, image_name, 
-                download_dir=download_dir,
-                local_image_path=download_location,
-                **kwargs)
-        new_image_id = self.upload_local_image(
-            upload_args['local_image_path'], image_name, **upload_args)
-
-        #Cleanup, return
-        if not kwargs.get('keep_image',False):
-            wildcard_remove(os.path.join(download_location, '%s*' % meta_name))
-
-        return new_image_id
-
     def download_instance(self, instance_id, download_location, *args, **kwargs):
         """
         Download an existing instance to local download directory
@@ -275,6 +225,108 @@ p
         #Return download_path and image_path
         return download_dir, os.path.join(download_dir, whole_image)
 
+    def parse_upload_args(self, instance_id, image_name, download_location, **kwargs):
+        reservation, instance = self.get_reservation(instance_id)
+        upload_kwargs = {
+            'image_name' : image_name,
+            'image_location' : download_location,
+            'parent_emi' : instance.image_id,
+        }
+
+        #  kernel  - Associated Kernel for image
+        #  (Default is instance.kernel)
+        upload_kwargs['kernel'] = kwargs.get('kernel',instance.kernel)
+
+        #  ramdisk - Associated Ramdisk for image
+        #  (Default is instance.ramdisk)
+        upload_kwargs['ramdisk'] = kwargs.get('ramdisk',instance.ramdisk)
+
+        #  public - Should image be accessible for other users?
+        #  (Default: False)
+        upload_kwargs['public'] = True if kwargs.get('public') else False
+
+        #  private_user_list  - List of users who should get access
+        #  (Default: [])
+        private_user_list = kwargs.get('private_user_list',[])
+        if reservation.owner_id not in private_user_list:
+            private_user_list.append(reservation.owner_id)
+        upload_kwargs['private_user_list'] = private_user_list
+
+        # bucket_name - The name of the S3 Bucket to be created
+        upload_kwargs['bucket_name'] = kwargs.get('bucket_name',
+                self._format_meta_name(image_name, reservation.owner_id,
+                                       creator='admin'))
+
+        # destination_path - Path where image, manifest, and parts file will
+        # reside while converting to an uploadable file
+        upload_kwargs['destination_path'] = kwargs.get('download_dir')
+
+        return upload_kwargs
+
+
+    def upload_local_image(self, image_location, image_name, kernel, ramdisk,
+                            destination_path, parent_emi, bucket_name,
+                            public, private_user_list):
+        """
+        Upload a local image, kernel and ramdisk exist in Eucalyptus Cloud
+        """
+        ancestor_ami_ids = [parent_emi, ] if parent_emi else []
+
+        new_image_id = self._upload_and_register(
+                image_location, bucket_name, kernel, ramdisk,
+                destination_path, ancestor_ami_ids)
+
+        if not public:
+            try:
+                #Someday this will matter. Euca doesn't respect it though..
+                euca_conn = self.euca.make_connection()
+                euca_conn.modify_image_attribute(
+                    image_id=new_image_id,
+                    attribute='launchPermission',
+                    operation='remove',
+                    groups=['all'],
+                    product_codes=None)
+                euca_conn.modify_image_attribute(
+                    image_id=new_image_id,
+                    attribute='launchPermission',
+                    operation='add',
+                    user_ids=private_user_list)
+            except EC2ResponseError, call_failed:
+                #Since Euca ignores this anyway, lets just continue.
+                logger.error("Private List - %s" % private_user_list)
+                logger.exception(call_failed)
+        return new_image_id
+
+    def upload_full_image(self, image_location, image_name,
+                          kernel_path, ramdisk_path, bucket_name,
+                          download_dir='/tmp', private_users=[], uploaded_by='admin'):
+        """
+        Upload a local image, local kernel and local ramdisk to the Eucalyptus Cloud
+        """
+        public = False
+        if not private_users:
+            public = True
+
+        kernel_id = self._upload_kernel(kernel_path, bucket_name, download_dir)
+        ramdisk_id = self._upload_ramdisk(ramdisk_path, bucket_name, download_dir)
+
+        new_image_path = os.path.join(
+                            os.path.dirname(image_location),
+                            '%s%s' % (self._format_meta_name(image_name,uploaded_by),
+                                      os.path.splitext(image_path)[1]))
+        #In order to use the image name we must change the name during upload
+        # to match the 'metadata' criteria for an image on atmosphere
+        try:
+            os.rename(image_location,new_image_path)
+            new_image_id = self.upload_local_image(
+                    new_image_path, image_name,
+                    kernel_id, ramdisk_id,
+                    download_dir, None, bucket_name,
+                    public, private_users) 
+        finally:
+            os.rename(new_image_path,image_location)
+
+        return (kernel_id, ramdisk_id, new_image_id)
     def delete_image(self, image_id, bucket_name=None):
         """
         Deletes an image
@@ -487,63 +539,6 @@ p
         return True
 
         
-    def upload_local_image(self, image_location, image_name, kernel, ramdisk,
-                            destination_path, parent_emi, bucket_name,
-                            image_name, public, private_user_list):
-        """
-        Upload a local image, kernel and ramdisk to the Eucalyptus Cloud
-        """
-        ancestor_ami_ids = [parent_emi, ] if parent_emi else []
-
-        new_image_id = self._upload_and_register(
-                image_path, bucket_name, kernel, ramdisk,
-                destination_path, ancestor_ami_ids)
-
-        if not public:
-            try:
-                #Someday this will matter. Euca doesn't respect it though..
-                euca_conn = self.euca.make_connection()
-                euca_conn.modify_image_attribute(
-                    image_id=new_image_id,
-                    attribute='launchPermission',
-                    operation='remove',
-                    groups=['all'],
-                    product_codes=None)
-                euca_conn.modify_image_attribute(
-                    image_id=new_image_id,
-                    attribute='launchPermission',
-                    operation='add',
-                    user_ids=private_user_list)
-            except EC2ResponseError, call_failed:
-                #Since Euca ignores this anyway, lets just continue.
-                logger.error("Private List - %s" % private_user_list)
-                logger.exception(call_failed)
-        return new_image_id
-
-    def upload_full_image(self, new_image_name, image_path, 
-                          kernel_path, ramdisk_path, bucket_name,
-                          download_dir='/tmp', private_users=[], uploaded_by='admin'):
-        public = False
-        if not private_users:
-            public = True
-
-        kernel_id = self._upload_kernel(kernel_path, bucket_name, download_dir)
-        ramdisk_id = self._upload_ramdisk(ramdisk_path, bucket_name, download_dir)
-
-        new_image_path = os.path.join(
-                            os.path.dirname(image_path),
-                            '%s%s' % (self._format_meta_name(new_image_name,uploaded_by),
-                                      os.path.splitext(image_path)[1]))
-        #In order to use the image name we must change the name during upload
-        # to match the 'metadata' criteria for an image on atmosphere
-        os.rename(image_path,new_image_path)
-        new_image_id = self.upload_local_image(new_image_path, new_image_name, kernel_id, ramdisk_id,
-                                             download_dir, None, bucket_name,
-                                             new_image_name, public,
-                                             private_users) 
-        os.rename(new_image_path,image_path)
-
-        return (kernel_id, ramdisk_id, new_image_id)
 
     def _upload_kernel(self, image_path, bucket_name, download_dir='/tmp'):
         return self._upload_and_register(image_path, bucket_name,
