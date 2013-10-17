@@ -98,28 +98,28 @@ class ImageManager(BaseDriver):
         """
         #Does the instance still exist?
         reservation, instance = self.get_reservation(instance_id)
-        #Yes.
+
+        #Step 1. Download
         download_args = self.parse_download_args(instance_id, image_name, **kwargs)
         download_location = self.download_instance(
                 instance_id, **download_args)
         download_dir = download_args['download_dir']
-        #ASSERT: by this line -- download_location contains a complete RAW img
-        # mount and clean image 
+
+        #Step 2. Mount and Clean image 
         if kwargs.get('clean_image',True):
             self.mount_and_clean(
                     download_location,
                     os.path.join(download_dir, 'mount/'),
                     **kwargs)
 
-        #upload image
+        ##Step 3. Upload image
         upload_kwargs = self.parse_upload_args(
                 instance_id, image_name, download_location, **kwargs)
         new_image_id = self.upload_local_image(**upload_kwargs)
 
-        #Cleanup, return
+        #Step 4. Cleanup, return
         if not kwargs.get('keep_image',False):
-            wildcard_remove(os.path.join(download_location, '%s*' % meta_name))
-
+            wildcard_remove(download_dir)
         return new_image_id
 
     def parse_download_args(self, instance_id, image_name, **kwargs):
