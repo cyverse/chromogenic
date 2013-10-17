@@ -70,15 +70,17 @@ class ImageManager(BaseDriver):
         """
         img_args = credentials.copy()
         #Required:
-        img_args['username']
-        img_args['password']
-        img_args['tenant_name']
+        img_args['key']
+        img_args['secret']
+        img_args['ex_tenant_name']
+        img_args['ex_project_name']
         img_args['auth_url']
         img_args['region_name']
+        img_args['admin_url']
         #Ignored:
-        img_args.pop('admin_url', None)
-        img_args.pop('router_name', None)
-        img_args.pop('ex_project_name', None)
+        #img_args.pop('admin_url', None)
+        #img_args.pop('router_name', None)
+        #img_args.pop('ex_project_name', None)
 
         return img_args
 
@@ -88,6 +90,9 @@ class ImageManager(BaseDriver):
         key = creds.pop('key', None)
         secret = creds.pop('secret', None)
         tenant = creds.pop('ex_tenant_name', None)
+        creds.pop('ex_project_name', None)
+        creds.pop('router_name', None)
+        creds.pop('admin_url', None)
         if key and not creds.get('username'):
             creds['username'] = key
         if secret and not creds.get('password'):
@@ -106,13 +111,33 @@ class ImageManager(BaseDriver):
             self.nova,\
             self.glance) = self._new_connection(*args, **creds)
 
+    def _admin_identity_creds(self, **kwargs):
+        creds = {}
+        creds['key'] = kwargs.get('key')
+        creds['secret'] = kwargs.get('secret')
+        creds['ex_tenant_name'] = kwargs.get('ex_tenant_name')
+        creds['ex_project_name'] = kwargs.get('ex_project_name')
+        return creds
 
+    def _admin_driver_creds(self, **kwargs):
+        creds = {}
+        creds['region_name'] = kwargs.get('region_name')
+        creds['router_name'] = kwargs.get('router_name')
+        creds['admin_url'] = kwargs.get('admin_url')
+        creds['ex_force_auth_url'] = kwargs.get('auth_url')
+        return creds
 
     def _build_admin_driver(self, **kwargs):
+        #Set Meta
         OSProvider.set_meta()
-        provider = OSProvider()
-        identity = OSIdentity(provider, **kwargs)
-        admin_driver = OSDriver(provider, identity, **kwargs)
+        #TODO: Set location from kwargs
+        provider = OSProvider(identifier=kwargs.get('location'))
+        admin_creds = self._admin_identity_creds(**kwargs)
+        logger.info("ADMINID Creds:%s" % admin_creds)
+        identity = OSIdentity(provider, **admin_creds)
+        driver_creds = self._admin_driver_creds(**kwargs)
+        logger.info("ADMINDriver Creds:%s" % driver_creds)
+        admin_driver = OSDriver(provider, identity, **driver_creds)
         return admin_driver
 
     def _new_connection(self, *args, **kwargs):
@@ -174,6 +199,11 @@ class ImageManager(BaseDriver):
                      exclude=None,
                      snapshot_id=None,
                      **kwargs):
+        """
+        NOTE: It is recommended that you 'prepare the snapshot' before creating
+        an image by running 'sync' and 'freeze' on the instance.
+        See 
+        """
         #Step 1: Build the snapshot
         ss_name = 'TEMP_SNAPSHOT <%s>' % image_name
         if not snapshot_id:
