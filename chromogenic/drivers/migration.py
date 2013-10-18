@@ -26,7 +26,30 @@ from chromogenic.convert import xen_to_kvm_ubuntu
 from chromogenic.convert import xen_to_kvm_centos
 
 
-        
+def _determine_distro(image_path, mount_point):
+    """
+    """
+    try:
+        out, err = mount_image(image_path, mount_point)
+        if err:
+            raise Exception("Encountered errors mounting image:%s" % err)
+
+        issue_file = os.path.join(mount_point, "etc/issue.net")
+        (issue_out,err) = run_command(["cat", issue_file])
+
+
+        if 'ubuntu' in issue_out.lower():
+            return 'ubuntu'
+        elif 'centos' in issue_out.lower():
+            return 'centos'
+        else:
+            return 'unknown'
+    finally:
+        run_command(["umount", mount_point])
+    
+def kvm_debian_migration(self, image_path, download_dir, euca_image_id):
+    pass
+
 def xen_debian_migration(self, image_path, download_dir, euca_image_id):
     """
     Convert the disk image at image_path from XEN to KVM
@@ -48,22 +71,25 @@ def xen_debian_migration(self, image_path, download_dir, euca_image_id):
 
     #Un-mount the image
     run_command(["umount", mount_point])
+    #TODO: Cannot be euca specific.. find another route
+    #image = self.euca_img_manager.get_image(euca_image_id)
+    #kernel = self.euca_img_manager.get_image(image.kernel_id)
+    #ramdisk = self.euca_img_manager.get_image(image.ramdisk_id)
 
-    image = self.euca_img_manager.get_image(euca_image_id)
-    kernel = self.euca_img_manager.get_image(image.kernel_id)
-    ramdisk = self.euca_img_manager.get_image(image.ramdisk_id)
+    #kernel_fname  = self.euca_img_manager._download_euca_image(
+    #    kernel.location, kernel_dir, 
+    #    kernel_dir, self.euca_img_manager.pk_path)[0]
+    #ramdisk_fname = self.euca_img_manager._download_euca_image(
+    #    ramdisk.location, ramdisk_dir,
+    #    ramdisk_dir, self.euca_img_manager.pk_path)[0]
 
-    kernel_fname  = self.euca_img_manager._download_euca_image(
-        kernel.location, kernel_dir, 
-        kernel_dir, self.euca_img_manager.pk_path)[0]
-    ramdisk_fname = self.euca_img_manager._download_euca_image(
-        ramdisk.location, ramdisk_dir,
-        ramdisk_dir, self.euca_img_manager.pk_path)[0]
+    #kernel_path = os.path.join(kernel_dir,kernel_fname)
+    #ramdisk_path = os.path.join(ramdisk_dir,ramdisk_fname)
 
-    kernel_path = os.path.join(kernel_dir,kernel_fname)
-    ramdisk_path = os.path.join(ramdisk_dir,ramdisk_fname)
+    #return (image_path, kernel_path, ramdisk_path)
 
-    return (image_path, kernel_path, ramdisk_path)
+def kvm_rhel_migration(self, image_path, download_dir):
+    pass
 
 def xen_rhel_migration(self, image_path, download_dir):
     """

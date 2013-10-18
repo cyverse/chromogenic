@@ -73,20 +73,34 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
     download_location = manager.download_instance(**imaging_args)
 
     download_dir = os.path.dirname(download_location)
+    mount_point = os.path.join(download_dir, 'mount/'),
+    if not os.path.exists(mount_point):
+        os.makedirs(mount_point)
     #2. clean from orig
     if imaging_args.get('clean_image',True):
         manager.mount_and_clean(
                 download_location,
-                os.path.join(download_dir, 'mount/'),
+                mount_point,
                 **imaging_args)
 
         #2. clean from new
         migrate.mount_and_clean(
                 download_location,
-                os.path.join(download_dir, 'mount/'),
+                mount_point,
                 **imaging_args)
 
     #3. Convert from KVM-->Xen or Xen-->KVM (If necessary)
+    distro = _determine_distro(image_path, mount_point)
+    if imaging_args.get('kvm_to_xen'):
+        if distro == 'ubuntu':
+            (image_path, kernel_path, ramdisk_path) = kvm_debian_migration(image_path, download_dir)
+        elif distro == 'centos':
+            (image_path, kernel_path, ramdisk_path) = kvm_rhel_migration(image_path, download_dir)
+    elif imaging_args.get('xen_to_kvm'):
+        if distro == 'ubuntu':
+            (image_path, kernel_path, ramdisk_path) = xen_debian_migration(image_path, download_dir)
+        elif distro == 'centos':
+            (image_path, kernel_path, ramdisk_path) = xen_rhel_migration(image_path, download_dir)
 
     #4. Upload on new
     upload_kwargs = migrate.parse_upload_args(**imaging_args)
