@@ -98,6 +98,9 @@ class ImageManager(BaseDriver):
         """
         #Does the instance still exist?
         reservation, instance = self.get_reservation(instance_id)
+        if not reservation or not instance:
+            raise Exception("Instance %s does not exist" % instance_id
+
 
         #Step 1. Download
         download_args = self.parse_download_args(instance_id, image_name, **kwargs)
@@ -179,8 +182,8 @@ class ImageManager(BaseDriver):
         Download an existing instance to local download directory
         Required Args:
             instance_id - The instance ID to be downloaded (i-12341234)
-        Optional Args:
             download_location - The exact path where image will be downloaded
+        Optional Args:
             remote_img_path - The override path (to find the image file on the node controller)
             node_scp_info - Dictionary for accessing the node controller by SSH
         """
@@ -936,6 +939,7 @@ class ImageManager(BaseDriver):
             for instance in res.instances:
                 if instance_id.lower() in instance.id.lower():
                     return (res, instance)
+        return (None, None)
 
     def list_images(self):
         euca_conn = self.euca.make_connection()

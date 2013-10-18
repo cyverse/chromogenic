@@ -18,7 +18,7 @@ manager.create_image('75fdfca4-d49d-4b2d-b919-a3297bc6d7ae', 'my new name')
 """
 import os
 import time
-
+from pytz import datetime
 from threepio import logger
 
 from rtwo.provider import OSProvider
@@ -111,16 +111,50 @@ class ImageManager(BaseDriver):
             self.nova,\
             self.glance) = self._new_connection(*args, **creds)
 
-    def create_image(self, instance_id, image_name,
-                     **kwargs):
-        #Step 1: Create a local copy of the instance via snapshot
-        (download_dir, download_location, snapshot) = self.download_instance(
-                instance_id, image_name,
-                download_dir=kwargs.get('download_dir'),
-                snapshot_id=kwargs.get('snapshot_id'))
+    def _parse_download_location(self, server, **kwargs):
+        download_location = kwargs.get('download_location')
+        download_dir = kwargs.get('download_dir')
+        if not download_dir and not download_location:
+            raise Exception("Could not parse download location. Expected "
+                            "'download_dir' or 'download_location'")
+        elif not download_location:
+            #Use download dir & tenant_name to keep filesystem order
+            tenant = find(self.keystone.tenants, id=server.tenant_id)
+            local_user_dir = os.path.join(download_dir, tenant.name)
+            if not os.path.exists(local_user_dir):
+                os.makedirs(local_user_dir)
+            download_location = os.path.join(local_user_dir, '%s.qcow2' % image_name)
+        elif not download_dir:
+            download_dir = os.path.dirname(download_location)
+        return download_dir, download_location
+
+    def create_image(self, instance_id, image_name, *args, **kwargs):
+        """
+        Creates an image of a running instance
+        Required Args:
+            instance_id - The instance that will be imaged
+            image_name - The name of the image
+            download_location OR download_dir - Where to download the image
+            if download_dir:
+                download_location = download_dir/username/image_name.qcow2
+        """
+        #Step 0: Is the instance alive?
+        server = self.get_server(instance_id)
+        if not server:
+            raise Exception("Instance %s does not exist" % instance_id)
+
+
+        #Set download location
+        download_dir, download_location = self._parse_download_location(server, **kwargs)
+        #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
+        snapshot_id=kwargs.get('snapshot_id',None)
+        if snapshot_id:
+            snapshot = self.download_snapshot(snapshot_id, local_user_dir)
+        else:
+            snapshot = self.download_instance(instance_id, download_location)
 
         #Step 2: Clean the local copy
-        fsck_qcow(download_location)
+        fsck_qcow(download_location) # Maintain image consistency..
         if kwargs.get('clean_image',True):
             self.mount_and_clean(
                     download_location,
@@ -129,80 +163,99 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
-        prev_kernel = snapshot.properties['kernel_id']
-        prev_ramdisk = snapshot.properties['ramdisk_id']
-        new_image = self.upload_local_image(download_location, image_name, 'ami', 'ami', True, {
-            'kernel_id': prev_kernel,
-            'ramdisk_id': prev_ramdisk})
-        #Step 6: Delete the snapshot
-        snapshot.delete()
+        upload_args = self._convert_upload_args(snapshot, image_name,
+                                              download_location, **kwargs)
+        new_image = self.upload_local_image(**upload_args)
+
+        #Step 4: Cleanup after yourself
+        if not kwargs.get('keep_image',False):
+            snapshot.delete()
+            wildcard_remove(download_dir)
+
         return new_image.id
 
-    def download_instance(self, instance_id, image_name,
-                          download_dir='/tmp',
-                          snapshot_id=None):
+    def _convert_upload_args(self, snapshot, image_name,
+                           download_location, **kwargs):
         """
+        Use this function when converting 'create_image' args to
+        'upload_local_image' args
+        """
+        upload_args = {
+             'image_location':download_location,
+             'image_name':image_name,
+             'container_format':'ami',
+             'disk_format':'ami',
+             'is_public':kwargs.get('public', True), 
+             'private_user_list':kwargs.get('private_user_list', []), 
+             'properties':{
+                 'kernel_id' : snapshot.properties['kernel_id'],
+                 'ramdisk_id' : snapshot.properties['ramdisk_id']
+             }
+        }
+        return upload_args
+
+    def download_snapshot(self, snapshot_id, download_location, *args, **kwargs):
+        """
+        Download an existing snapshot to local download directory
+        Required Args:
+            snapshot_id - The snapshot ID to be downloaded (1234-4321-1234)
+            download_location - The exact path where image will be downloaded
+        """
+        #Step 1: Find snapshot by id
+        return self.download_image(snapshot_id, download_location)
+
+
+    def download_instance(self, instance_id, download_location, *args, **kwargs):
+        """
+        Download an existing instance to local download directory
+        Required Args:
+            instance_id - The instance ID to be downloaded (1234-4321-1234)
+            download_location - The exact path where image will be downloaded
+
         NOTE: It is recommended that you 'prepare the snapshot' before creating
         an image by running 'sync' and 'freeze' on the instance. See
         http://docs.openstack.org/grizzly/openstack-ops/content/snapsnots.html#consistent_snapshots
         """
-        #Step 0: Is the instance alive?
-        server = self.get_server(instance_id)
-        if not server:
-            raise Exception("Instance %s does not exist" % instance_id)
-
-        #Step 1: If not snapshot_id, create new snapshot
-        if not snapshot_id:
-            ss_name = 'TEMP_SNAPSHOT <%s>' % image_name
-            meta_data = {}
-            snapshot = self.create_snapshot(instance_id, ss_name, **meta_data)
-        else:
-            snapshot = self.get_image(snapshot_id)
 
         #Step 2: Create local path for copying image
         tenant = find(self.keystone.tenants, id=server.tenant_id)
-        local_user_dir = os.path.join(download_dir, tenant.name)
-        if not os.path.exists(local_user_dir):
-            os.makedirs(local_user_dir)
+        now = datetime.datetime.now() # Pytz datetime
+        now_str = now.strftime('%Y-%m-%d_%H:%M:%S')
+        ss_name = 'ChromoSnapShot_%s_%s' % (instance_id, now_str)
+        meta_data = {}
+        snapshot = self.create_snapshot(instance_id, ss_name, delay=True, **meta_data)
+        return self.download_image(snapshot.id, download_location)
 
-        #Step 3: Download local copy of snapshot
-        local_image = os.path.join(local_user_dir, '%s.qcow2' % image_name)
-        logger.debug("Snapshot downloading to %s" % local_image)
-        with open(local_image,'w') as f:
-            for chunk in snapshot.data():
-                f.write(chunk)
-
-        logger.debug("Snapshot downloaded to %s" % local_image)
-        return (local_user_dir, local_image, snapshot)
-
-    def download_image(self, download_dir, image_id, extension=None):
+    def download_image(self, image_id, download_location):
         image = self.glance.images.get(image_id)
-        local_image = os.path.join(download_dir, '%s' % (image_id,))
-        with open(local_image,'w') as f:
+        #Step 2: Download local copy of snapshot
+        logger.debug("Image downloading to %s" % download_location)
+        with open(download_location,'w') as f:
             for chunk in image.data():
                 f.write(chunk)
-        if not extension:
-            extension = self._read_file_type(local_image)
-        os.rename(local_image, "%s.%s" % (local_image, extension))
-        return local_image
+        logger.debug("Image downloaded to %s" % download_location)
+        return image
 
-    def upload_local_image(self, download_loc, name,
+    def upload_local_image(self, image_location, image_name,
                      container_format='ovf',
                      disk_format='raw',
-                     is_public=True, properties={}):
+                     is_public=True, private_user_list=[], properties={}):
         """
         Upload a single file as a glance image
         Defaults ovf/raw are correct for a eucalyptus .img file
         """
-        new_meta = self.glance.images.create(name=name,
+        new_image = self.glance.images.create(name=name,
                                              container_format=container_format,
                                              disk_format=disk_format,
                                              is_public=is_public,
                                              properties=properties,
-                                             data=open(download_loc))
-        return new_meta
+                                             data=open(image_location))
+        #TODO: For username in private_user_list
+        #    share_image(new_meta,username)
+        return new_image
 
-    def upload_full_image(self, name, image_file, kernel_file, ramdisk_file):
+    def upload_full_image(self, image_name, image_file,
+                          kernel_file, ramdisk_file, is_public=True):
         """
         Upload a full image to glance..
             name - Name of image when uploaded to OpenStack
@@ -212,16 +265,25 @@ class ImageManager(BaseDriver):
         Requires 3 separate filepaths to uploads the Ramdisk, Kernel, and Image
         This is useful for migrating from Eucalyptus/AWS --> Openstack
         """
-        opts = {}
         new_kernel = self.upload_local_image(kernel_file,
-                                       'eki-%s' % name,
-                                       'aki', 'aki', True)
-        opts['kernel_id'] = new_kernel.id
+                                             'eki-%s' % image_name,
+                                             container_format='aki', 
+                                             disk_format='aki', 
+                                             is_public=is_public)
         new_ramdisk = self.upload_local_image(ramdisk_file,
-                                        'eri-%s' % name,
-                                        'ari', 'ari', True)
-        opts['ramdisk_id'] = new_ramdisk.id
-        new_image = self.upload_local_image(image, name, 'ami', 'ami', True, opts)
+                                             'eri-%s' % image_name,
+                                             container_format='ari', 
+                                             disk_format='ari', 
+                                             is_public=is_public)
+        opts = {
+            'kernel_id' : new_kernel.id
+            'ramdisk_id' : new_ramdisk.id
+        }
+        new_image = self.upload_local_image(image_file, image_name, 
+                                             container_format='ami', 
+                                             disk_format='ami', 
+                                             is_public=is_public,
+                                             properties=opts)
         return new_image
 
     def delete_images(self, image_id=None, image_name=None):
@@ -244,7 +306,7 @@ class ImageManager(BaseDriver):
 
     # Public methods that are OPENSTACK specific
 
-    def create_snapshot(self, instance_id, name, **kwargs):
+    def create_snapshot(self, instance_id, name, delay=False, **kwargs):
         """
         NOTE: It is recommended that you 'prepare the snapshot' before creating
         an image by running 'sync' and 'freeze' on the instance. See
@@ -256,7 +318,9 @@ class ImageManager(BaseDriver):
             raise Exception("Server %s does not exist" % instance_id)
         logger.debug("Instance is prepared to create a snapshot")
         snapshot_id = self.nova.servers.create_image(server, name, metadata)
-
+        snapshot = self.get_image(snapshot_id)
+        if not delay:
+            return snapshot
         #Step 2: Wait (Exponentially) until status moves from:
         # queued --> saving --> active
         attempts = 0
