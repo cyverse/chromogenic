@@ -154,7 +154,8 @@ class ImageManager(BaseDriver):
         #Step 1: If not snapshot_id, create new snapshot
         if not snapshot_id:
             ss_name = 'TEMP_SNAPSHOT <%s>' % image_name
-            snapshot = self.create_snapshot(instance_id, ss_name, **kwargs)
+            meta_data = {}
+            snapshot = self.create_snapshot(instance_id, ss_name, **meta_data)
         else:
             snapshot = self.get_image(snapshot_id)
 
