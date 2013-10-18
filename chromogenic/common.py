@@ -434,12 +434,17 @@ def prepare_chroot_env(mount_point):
     run_command(['mount', '--bind', '/etc/resolv.conf', etc_resolv_file])
 
 def fsck_qcow(image_path):
+    """
+    Will attempt to auto-repair a QCOW2 image, in case there were errors during
+    snapshot creation
+    """
     if 'qcow' not in image_path:
-        return
+        return False
     nbd_dev = _get_next_nbd()
     run_command(['qemu-nbd', '-c', nbd_dev, image_path])
     run_command(['fsck', '-y', nbd_dev])
     run_command(['qemu-nbd', '-d', nbd_dev])
+    return True
 
 def mount_qcow(image_path, mount_point):
     nbd_dev = _get_next_nbd()

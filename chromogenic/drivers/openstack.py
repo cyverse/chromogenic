@@ -111,6 +111,185 @@ class ImageManager(BaseDriver):
             self.nova,\
             self.glance) = self._new_connection(*args, **creds)
 
+    def create_image(self, instance_id, image_name,
+                     **kwargs):
+        #Step 1: Create a local copy of the instance via snapshot
+        (download_dir, download_location, snapshot) = self.download_instance(
+                instance_id, image_name,
+                download_dir=kwargs.get('download_dir'),
+                snapshot_id=kwargs.get('snapshot_id'))
+
+        #Step 2: Clean the local copy
+        fsck_qcow(download_location)
+        if kwargs.get('clean_image',True):
+            self.mount_and_clean(
+                    download_location,
+                    os.path.join(download_dir, 'mount/'),
+                    **kwargs=kwargs)
+
+        #Step 3: Upload the local copy as a 'real' image
+        # with seperate kernel & ramdisk
+        prev_kernel = snapshot.properties['kernel_id']
+        prev_ramdisk = snapshot.properties['ramdisk_id']
+        new_image = self.upload_local_image(download_location, image_name, 'ami', 'ami', True, {
+            'kernel_id': prev_kernel,
+            'ramdisk_id': prev_ramdisk})
+        #Step 6: Delete the snapshot
+        snapshot.delete()
+        return new_image.id
+
+    def download_instance(self, instance_id, image_name,
+                          download_dir='/tmp',
+                          snapshot_id=None):
+        """
+        NOTE: It is recommended that you 'prepare the snapshot' before creating
+        an image by running 'sync' and 'freeze' on the instance. See
+        http://docs.openstack.org/grizzly/openstack-ops/content/snapsnots.html#consistent_snapshots
+        """
+        #Step 0: Is the instance alive?
+        server = self.get_server(instance_id)
+        if not server:
+            raise Exception("Instance %s does not exist" % instance_id)
+
+        #Step 1: If not snapshot_id, create new snapshot
+        if not snapshot_id:
+            ss_name = 'TEMP_SNAPSHOT <%s>' % image_name
+            snapshot = self.create_snapshot(instance_id, ss_name, **kwargs)
+        else:
+            snapshot = self.get_image(snapshot_id)
+
+        #Step 2: Create local path for copying image
+        tenant = find(self.keystone.tenants, id=server.tenant_id)
+        local_user_dir = os.path.join(download_dir, tenant.name)
+        if not os.path.exists(local_user_dir):
+            os.makedirs(local_user_dir)
+
+        #Step 3: Download local copy of snapshot
+        local_image = os.path.join(local_user_dir, '%s.qcow2' % image_name)
+        logger.debug("Snapshot downloading to %s" % local_image)
+        with open(local_image,'w') as f:
+            for chunk in snapshot.data():
+                f.write(chunk)
+
+        logger.debug("Snapshot downloaded to %s" % local_image)
+        return (local_user_dir, local_image, snapshot)
+
+    def download_image(self, download_dir, image_id, extension=None):
+        image = self.glance.images.get(image_id)
+        local_image = os.path.join(download_dir, '%s' % (image_id,))
+        with open(local_image,'w') as f:
+            for chunk in image.data():
+                f.write(chunk)
+        if not extension:
+            extension = self._read_file_type(local_image)
+        os.rename(local_image, "%s.%s" % (local_image, extension))
+        return local_image
+
+    def upload_local_image(self, download_loc, name,
+                     container_format='ovf',
+                     disk_format='raw',
+                     is_public=True, properties={}):
+        """
+        Upload a single file as a glance image
+        Defaults ovf/raw are correct for a eucalyptus .img file
+        """
+        new_meta = self.glance.images.create(name=name,
+                                             container_format=container_format,
+                                             disk_format=disk_format,
+                                             is_public=is_public,
+                                             properties=properties,
+                                             data=open(download_loc))
+        return new_meta
+
+    def upload_full_image(self, name, image_file, kernel_file, ramdisk_file):
+        """
+        Upload a full image to glance..
+            name - Name of image when uploaded to OpenStack
+            image_file - Path containing the image file
+            kernel_file - Path containing the kernel file
+            ramdisk_file - Path containing the ramdisk file
+        Requires 3 separate filepaths to uploads the Ramdisk, Kernel, and Image
+        This is useful for migrating from Eucalyptus/AWS --> Openstack
+        """
+        opts = {}
+        new_kernel = self.upload_local_image(kernel_file,
+                                       'eki-%s' % name,
+                                       'aki', 'aki', True)
+        opts['kernel_id'] = new_kernel.id
+        new_ramdisk = self.upload_local_image(ramdisk_file,
+                                        'eri-%s' % name,
+                                        'ari', 'ari', True)
+        opts['ramdisk_id'] = new_ramdisk.id
+        new_image = self.upload_local_image(image, name, 'ami', 'ami', True, opts)
+        return new_image
+
+    def delete_images(self, image_id=None, image_name=None):
+        if not image_id and not image_name:
+            raise Exception("delete_image expects image_name or image_id as keyword"
+            " argument")
+
+        if image_name:
+            images = [img for img in self.list_images()
+                      if image_name in img.name]
+        else:
+            images = [self.glance.images.get(image_id)]
+
+        if len(images) == 0:
+            return False
+        for image in images:
+            self.glance.images.delete(image)
+
+        return True
+
+    # Public methods that are OPENSTACK specific
+
+    def create_snapshot(self, instance_id, name, **kwargs):
+        """
+        NOTE: It is recommended that you 'prepare the snapshot' before creating
+        an image by running 'sync' and 'freeze' on the instance. See
+        http://docs.openstack.org/grizzly/openstack-ops/content/snapsnots.html#consistent_snapshots
+        """
+        metadata = kwargs
+        server = self.get_server(instance_id)
+        if not server:
+            raise Exception("Server %s does not exist" % instance_id)
+        logger.debug("Instance is prepared to create a snapshot")
+        snapshot_id = self.nova.servers.create_image(server, name, metadata)
+
+        #Step 2: Wait (Exponentially) until status moves from:
+        # queued --> saving --> active
+        attempts = 0
+        while True:
+            snapshot = self.get_image(snapshot_id)
+            if attempts >= 40:
+                break
+            if snapshot.status == 'active':
+                break
+            attempts += 1
+            logger.debug("Snapshot %s in non-active state %s" % (snapshot_id, snapshot.status))
+            logger.debug("Attempt:%s, wait 1 minute" % attempts)
+            time.sleep(60)
+        if snapshot.status != 'active':
+            raise Exception("Create_snapshot timeout. Operation exceeded 40m")
+        return snapshot
+
+
+    # Private methods and helpers
+    def _read_file_type(self, local_image):
+        out, _ = run_command(['file', local_image])
+        logger.info("FileOutput: %s" % out)
+        if 'qemu qcow' in out.lower():
+            if 'v2' in out.lower():
+                return 'qcow2'
+            else:
+                return 'qcow'
+        elif 'Linux rev 1.0' in out.lower() and 'ext' in out.lower():
+            return 'img'
+        else:
+            raise Exception("Could not guess the type of file. Output=%s"
+                            % out)
+
+
     def _admin_identity_creds(self, **kwargs):
         creds = {}
         creds['key'] = kwargs.get('key')
@@ -149,10 +328,6 @@ class ImageManager(BaseDriver):
         glance = _connect_to_glance(keystone, *args, **kwargs)
         return (keystone, nova, glance)
 
-    def list_servers(self):
-        return [server for server in
-                self.nova.servers.list(search_opts={'all_tenants':1})]
-
     def get_instance(self, instance_id):
         instances = self.admin_driver._connection.ex_list_all_instances()
         for inst in instances:
@@ -167,145 +342,6 @@ class ImageManager(BaseDriver):
         if not servers:
             return None
         return servers[0]
-
-    def create_snapshot(self, instance_id, name, **kwargs):
-        metadata = kwargs
-        server = self.get_server(instance_id)
-        if not server:
-            raise Exception("Server %s does not exist" % instance_id)
-        #self.prepare_snapshot(instance_id)
-        logger.debug("Instance is prepared to create a snapshot")
-        snapshot_id = self.nova.servers.create_image(server, name, metadata)
-
-        #Step 2: Wait (Exponentially) until status moves from:
-        # queued --> saving --> active
-        attempts = 0
-        while True:
-            snapshot = self.get_image(snapshot_id)
-            if attempts >= 40:
-                break
-            if snapshot.status == 'active':
-                break
-            attempts += 1
-            logger.debug("Snapshot %s in non-active state %s" % (snapshot_id, snapshot.status))
-            logger.debug("Attempt:%s, wait 1 minute" % attempts)
-            time.sleep(60)
-        if snapshot.status != 'active':
-            raise Exception("Create_snapshot timeout. Operation exceeded 40m")
-        return snapshot
-
-    def create_image(self, instance_id, image_name,
-                     local_download_dir='/tmp',
-                     exclude=None,
-                     snapshot_id=None,
-                     **kwargs):
-        """
-        NOTE: It is recommended that you 'prepare the snapshot' before creating
-        an image by running 'sync' and 'freeze' on the instance.
-        See 
-        """
-        #Step 1: Build the snapshot
-        ss_name = 'TEMP_SNAPSHOT <%s>' % image_name
-        if not snapshot_id:
-            snapshot = self.create_snapshot(instance_id, ss_name, **kwargs)
-        else:
-            snapshot = self.get_image(snapshot_id)
-        #Step 2: Create local path for copying image
-        server = self.get_server(instance_id)
-        tenant = find(self.keystone.tenants, id=server.tenant_id)
-        local_user_dir = os.path.join(local_download_dir, tenant.name)
-        if not os.path.exists(local_user_dir):
-            os.makedirs(local_user_dir)
-        #Step 3: Download local copy of snapshot
-        local_image = os.path.join(local_user_dir, '%s.qcow2' % image_name)
-        logger.debug("Snapshot downloading to %s" % local_image)
-        with open(local_image,'w') as f:
-            for chunk in snapshot.data():
-                f.write(chunk)
-        logger.debug("Snapshot downloaded to %s" % local_image)
-        #Step 4: Clean the local copy
-        fsck_qcow(local_image)
-        self.clean_local_image(
-                local_image,
-                os.path.join(local_user_dir, 'mount/'),
-                exclude=exclude)
-
-        #Step 5: Upload the local copy as a 'real' image
-        # with seperate kernel & ramdisk
-        prev_kernel = snapshot.properties['kernel_id']
-        prev_ramdisk = snapshot.properties['ramdisk_id']
-        new_image = self.upload_image(local_image, image_name, 'ami', 'ami', True, {
-            'kernel_id': prev_kernel,
-            'ramdisk_id': prev_ramdisk})
-        #Step 6: Delete the snapshot
-        snapshot.delete()
-        return new_image.id
-
-    def prepare_snapshot(self, instance_id):
-        kwargs = {}
-        private_key = "/opt/dev/atmosphere/extras/ssh/id_rsa"
-        kwargs.update({'ssh_key': private_key})
-        kwargs.update({'timeout': 120})
-
-        si_script = sync_instance()
-        kwargs.update({'deploy': si_script})
-
-        instance = self.get_instance(instance_id)
-        self.admin_driver.deploy_to(instance, **kwargs)
-
-        fi_script = freeze_instance()
-        kwargs.update({'deploy': fi_script})
-        deploy_to.delay(
-            driver.__class__, driver.provider, dirver.identity, 
-            instance)
-        #Give it a head-start..
-        time.sleep(1)
-
-    def clean_local_image(self, image_path, mount_point, exclude=[]):
-        #Prepare the paths
-        if not os.path.exists(image_path):
-            logger.error("Could not find local image!")
-            raise Exception("Image file not found")
-
-        if not os.path.exists(mount_point):
-            os.makedirs(mount_point)
-
-        #Mount the directory
-        out, err = mount_image(image_path, mount_point)
-
-        if err:
-            raise Exception("Encountered errors mounting the image: %s" % err)
-
-        #Begin removing user-specified files (Matches wildcards)
-        if exclude and exclude[0]:
-            logger.info("User-initiated files to be removed: %s" % exclude)
-            remove_files(exclude, mount_point)
-
-        remove_user_data(mount_point)
-        remove_atmo_data(mount_point)
-        remove_vm_specific_data(mount_point)
-
-        #Don't forget to unmount!
-        unmount_image(image_path, mount_point)
-        return
-
-    def delete_images(self, image_id=None, image_name=None):
-        if not image_id and not image_name:
-            raise Exception("delete_image expects image_name or image_id as keyword"
-            " argument")
-
-        if image_name:
-            images = [img for img in self.list_images()
-                      if image_name in img.name]
-        else:
-            images = [self.glance.images.get(image_id)]
-
-        if len(images) == 0:
-            return False
-        for image in images:
-            self.glance.images.delete(image)
-
-        return True
 
     def list_images(self):
         return self.nova.images.list()
@@ -346,55 +382,6 @@ class ImageManager(BaseDriver):
         return self.glance.image_members.delete(image.id, tenant.id)
 
     #Alternative image uploading
-    def upload_euca_image(self, name, image, kernel=None, ramdisk=None):
-        """
-        Upload a euca image to glance..
-            name - Name of image when uploaded to OpenStack
-            image - File containing the image
-            kernel - File containing the kernel
-            ramdisk - File containing the ramdisk
-        Requires 3 separate filepaths to uploads the Ramdisk, Kernel, and Image
-        This is useful for migrating from Eucalyptus/AWS --> Openstack
-        """
-        opts = {}
-        if kernel:
-            new_kernel = self.upload_image(kernel,
-                                           'eki-%s' % name,
-                                           'aki', 'aki', True)
-            opts['kernel_id'] = new_kernel.id
-        if ramdisk:
-            new_ramdisk = self.upload_image(ramdisk,
-                                            'eri-%s' % name,
-                                            'ari', 'ari', True)
-            opts['ramdisk_id'] = new_ramdisk.id
-        new_image = self.upload_image(image, name, 'ami', 'ami', True, opts)
-        return new_image
-
-    def upload_image(self, download_loc, name,
-                     container_format='ovf',
-                     disk_format='raw',
-                     is_public=True, properties={}):
-        """
-        Upload a single file as a glance image
-        Defaults ovf/raw are correct for a eucalyptus .img file
-        """
-        new_meta = self.glance.images.create(name=name,
-                                             container_format=container_format,
-                                             disk_format=disk_format,
-                                             is_public=is_public,
-                                             properties=properties,
-                                             data=open(download_loc))
-        return new_meta
-
-    def download_image(self, download_dir, image_id, extension='raw'):
-        image = self.glance.images.get(image_id)
-        download_to = os.path.join(download_dir, '%s.%s' %
-                                   (image_id,extension))
-        #These lines are failing, look into it later..
-        #with open(download_to, 'w') as imgf:
-        #    imgf.writelines(image.data())
-        #return download_to
-        raise Exception("download_image is not supported at this time")
 
     #Lists
     def admin_list_images(self):
