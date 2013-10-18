@@ -128,6 +128,31 @@ class ImageManager(BaseDriver):
             download_dir = os.path.dirname(download_location)
         return download_dir, download_location
 
+    def parse_download_args(self, instance_id, **kwargs):
+        #Step 0: Is the instance alive?
+        server = self.get_server(instance_id)
+        if not server:
+            raise Exception("Instance %s does not exist" % instance_id)
+
+
+        #Set download location
+        download_dir, download_location = self._parse_download_location(server, **kwargs)
+        download_args = {
+                'snapshot_id': kwargs.get('snapshot_id'),
+                'instance_id': instance_id, 
+                'download_dir' : download_dir,
+                'download_location' : download_location,
+        }
+
+    def download_instance(self, instance_id, download_location='/tmp', **kwargs):
+        snapshot_id=kwargs.get('snapshot_id',None)
+        if snapshot_id:
+            snapshot = self.download_snapshot(snapshot_id, download_location)
+        else:
+            snapshot = self._download_instance(instance_id, download_location)
+        fsck_qcow(download_location) # Maintain image consistency..
+        return snapshot
+
     def create_image(self, instance_id, image_name, *args, **kwargs):
         """
         Creates an image of a running instance
@@ -138,23 +163,11 @@ class ImageManager(BaseDriver):
             if download_dir:
                 download_location = download_dir/username/image_name.qcow2
         """
-        #Step 0: Is the instance alive?
-        server = self.get_server(instance_id)
-        if not server:
-            raise Exception("Instance %s does not exist" % instance_id)
-
-
-        #Set download location
-        download_dir, download_location = self._parse_download_location(server, **kwargs)
         #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
-        snapshot_id=kwargs.get('snapshot_id',None)
-        if snapshot_id:
-            snapshot = self.download_snapshot(snapshot_id, local_user_dir)
-        else:
-            snapshot = self.download_instance(instance_id, download_location)
+        download_kwargs = self.parse_download_args(instance_id, **kwargs)
+        snapshot = self.download_instance(instance_id, **download_kwargs)
 
         #Step 2: Clean the local copy
-        fsck_qcow(download_location) # Maintain image consistency..
         if kwargs.get('clean_image',True):
             self.mount_and_clean(
                     download_location,
@@ -163,7 +176,7 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
-        upload_args = self._convert_upload_args(snapshot, image_name,
+        upload_args = self.parse_upload_args(snapshot, image_name,
                                               download_location, **kwargs)
         new_image = self.upload_local_image(**upload_args)
 
@@ -174,7 +187,7 @@ class ImageManager(BaseDriver):
 
         return new_image.id
 
-    def _convert_upload_args(self, snapshot, image_name,
+    def parse_upload_args(self, snapshot, image_name,
                            download_location, **kwargs):
         """
         Use this function when converting 'create_image' args to
@@ -205,7 +218,7 @@ class ImageManager(BaseDriver):
         return self.download_image(snapshot_id, download_location)
 
 
-    def download_instance(self, instance_id, download_location, *args, **kwargs):
+    def _download_instance(self, instance_id, download_location, *args, **kwargs):
         """
         Download an existing instance to local download directory
         Required Args:

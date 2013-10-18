@@ -35,7 +35,6 @@ from euca2ools import Euca2ool, FileValidationError
 
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.common import mount_image, get_latest_ramdisk
-from chromogenic.convert import xen_to_kvm_centos
 from django.conf import settings
 from threepio import logger
 from chromogenic.drivers.base import BaseDriver
@@ -223,7 +222,7 @@ class ImageManager(BaseDriver):
         #Get image location and unbundle the files based on the manifest and
         #parts
         image_location = machine.location
-        whole_image = self._unbundle_euca_image(image_location, download_dir,
+        whole_image = self._download_euca_image(image_location, download_dir,
                                                 part_dir, self.pk_path)[0]
         #Return download_path and image_path
         return download_dir, os.path.join(download_dir, whole_image)
@@ -834,7 +833,7 @@ class ImageManager(BaseDriver):
     Indirect Download Image Functions
     These functions are called indirectly during the 'download_image' process.
     """
-    def _unbundle_euca_image(self, image_location, download_dir, part_dir,
+    def _download_euca_image(self, image_location, download_dir, part_dir,
             pk_path):
         logger.debug("Complete. Begin Download of Image  @ %s.."
                      % datetime.now())

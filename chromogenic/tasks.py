@@ -67,7 +67,30 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
     #TODO: Pass orig_creds and migrate_creds to the correct migration class
     #TODO: Decide how to initialize manager for migrating..
     manager = orig
-    new_image_id = manager.create_image(**imaging_args)
+
+    #1. Download from orig
+    download_args = manager.parse_download_args(**imaging_args)
+    download_location = manager.download_instance(**imaging_args)
+
+    download_dir = os.path.dirname(download_location)
+    #2. clean from orig
+    if imaging_args.get('clean_image',True):
+        manager.mount_and_clean(
+                download_location,
+                os.path.join(download_dir, 'mount/'),
+                **imaging_args)
+
+        #2. clean from new
+        migrate.mount_and_clean(
+                download_location,
+                os.path.join(download_dir, 'mount/'),
+                **imaging_args)
+
+    #3. Convert from KVM-->Xen or Xen-->KVM (If necessary)
+
+    #4. Upload on new
+    upload_kwargs = migrate.parse_upload_args(**imaging_args)
+    new_image_id = migrate.upload_local_image(**upload_kwargs)
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)
