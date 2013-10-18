@@ -4,6 +4,7 @@ from chromogenic.common import mount_image, remove_files
 from chromogenic.common import run_command
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
                                   remove_vm_specific_data
+from chromogenic.common import prepare_chroot_env, remove_chroot_env
 
 class BaseDriver():
     def parse_download_args(self, instance_id, **kwargs):
@@ -61,10 +62,41 @@ class BaseDriver():
         remove_user_data(mount_point)
         remove_atmo_data(mount_point)
         remove_vm_specific_data(mount_point)
+
         #Driver specific cleaning
         self.clean_hook(image_path, mount_point, *args, **kwargs)
+
+        #Filesystem cleaning
+        self.file_hook_cleaning(mount_point, **kwargs)
         #Don't forget to unmount!
         run_command(['umount', mount_point])
         return
+
+    def file_hook_cleaning(self, mounted_path, **kwargs):
+        """
+        Look for a 'file_hook' on the actual filesystem (Mounted at
+        mounted_path)
+
+        If it exists, prepare a chroot and execute the file
+        """
+        #File hooks inside the local image
+        clean_filename = kwargs.get('file_hook':"/etc/chromogenic/clean")
+        #Ignore the lead / when doing path.join
+        not_root_filename = clean_filename[1:]
+        mounted_clean_path = os.path.join(mounted_path,not_root_filename)
+        if not os.path.exists(mounted_clean_path):
+            return False
+        try:
+            prepare_chroot_env(mounted_path)
+            #Run this command in a prepared chroot
+            run_command(
+                ["/usr/sbin/chroot", mounted_path,
+                 "/bin/bash", "-c", clean_filename])
+        except Exception, e:
+            logger.exception(e)
+            return False
+        finally:
+            remove_chroot_env(mounted_path)
+        return True
 
 
