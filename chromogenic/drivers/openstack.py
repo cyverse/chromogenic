@@ -125,7 +125,7 @@ class ImageManager(BaseDriver):
             self.mount_and_clean(
                     download_location,
                     os.path.join(download_dir, 'mount/'),
-                    **kwargs=kwargs)
+                    **kwargs)
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
