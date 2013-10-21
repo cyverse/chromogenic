@@ -208,12 +208,12 @@ class ImageManager(BaseDriver):
                     download_location, **kwargs)
         #one path and one id OR no path no id
         else:
-            raise Exception ("Cannot create upload arguments without either:"
+            raise Exception("Cannot create upload arguments without either:"
                              " 1. kernel_id + ramdisk_id OR"
                              " 2. kernel_path + ramdisk_path")
 
     def _parse_args_upload_full_image(self, image_name,
-                                       download_location, **kwargs)
+                                      download_location, **kwargs):
         upload_args = {
             'image_name':image_name, 
             'image_file':download_location,

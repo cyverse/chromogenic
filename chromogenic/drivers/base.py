@@ -80,7 +80,7 @@ class BaseDriver():
         If it exists, prepare a chroot and execute the file
         """
         #File hooks inside the local image
-        clean_filename = kwargs.get('file_hook':"/etc/chromogenic/clean")
+        clean_filename = kwargs.get('file_hook',"/etc/chromogenic/clean")
         #Ignore the lead / when doing path.join
         not_root_filename = clean_filename[1:]
         mounted_clean_path = os.path.join(mounted_path,not_root_filename)

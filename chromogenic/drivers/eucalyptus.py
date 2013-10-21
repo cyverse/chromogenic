@@ -98,7 +98,7 @@ class ImageManager(BaseDriver):
         #Does the instance still exist?
         reservation, instance = self.get_reservation(instance_id)
         if not reservation or not instance:
-            raise Exception("Instance %s does not exist" % instance_id
+            raise Exception("Instance %s does not exist" % instance_id)
 
 
         #Step 1. Download
