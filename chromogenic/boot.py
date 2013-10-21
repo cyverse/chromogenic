@@ -1,33 +1,8 @@
 import os
 from chromogenic.common import check_distro
-from chromogenic.convert import xen_to_kvm_ubuntu,\
-                                    xen_to_kvm_centos
 from chromogenic.common import rebuild_ramdisk, run_command,\
                                    get_latest_ramdisk, fdisk_image
 from django.conf import settings
-#No.
-#
-#def make_image_bootable(mounted_path, image_path):
-#    """
-#    Call this function to make necessary changes for a bootable image
-#    """
-#
-#    #First, label the disk image for /etc/fstab
-#    # label syntax: 
-#    # NOTE: This disk image should have the root partition
-#    run_command(['e2label', image_path, 'root'])
-#
-#    distro = check_distro(mounted_path)
-#    if  distro == 'Ubuntu':
-#        xen_to_kvm_ubuntu(mounted_path)
-#    elif distro == 'CentOS':
-#        xen_to_kvm_centos(mounted_path)
-#    else:
-#        raise Exception("Cannot convert to distro: %s" % distro)
-#    #Both conversions require change to ramdisk
-#    rebuild_ramdisk(mounted_path)
-#    add_grub(mounted_path, image_path)
-
 
 def add_grub(mounted_path, image_path):
     """

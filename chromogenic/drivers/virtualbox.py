@@ -29,11 +29,11 @@ from threepio import logger
 from django.utils import timezone
 
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
+from chromogenic.drivers.migration import Xen2KVM
 from chromogenic.boot import add_grub
 from chromogenic.common import sed_delete_multi, sed_replace, sed_append
 from chromogenic.common import run_command, copy_disk, create_empty_image
 from chromogenic.common import mount_image, check_distro
-from chromogenic.convert import xen_to_kvm
 from chromogenic.export import add_virtualbox_support
 
 
@@ -77,9 +77,9 @@ class ExportManager():
 
             self.euca_img_manager._clean_local_image(local_img_path, mount_point)
 
+            Xen2KVM.convert(local_img_path, download_dir)
             try:
                 mount_image(local_img_path, mount_point)
-                xen_to_kvm(mount_point)
                 add_virtualbox_support(mount_point, local_img_path)
             finally:
                 run_command(['umount', mount_point])
