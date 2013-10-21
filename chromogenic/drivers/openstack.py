@@ -224,7 +224,7 @@ class ImageManager(BaseDriver):
         return upload_args
 
     def _parse_args_upload_local_image(self, image_name,
-                                       download_location, **kwargs)
+                                       download_location, **kwargs):
         upload_args = {
              'image_location':download_location,
              'image_name':image_name,
