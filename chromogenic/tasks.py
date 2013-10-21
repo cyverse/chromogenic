@@ -10,7 +10,7 @@ from core.email import send_image_request_email
 
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
 from chromogenic.drivers.openstack import ImageManager as OSImageManager
-from chromogenic.drivers.migration import kvm_to_xen, xen_to_kvm
+from chromogenic.drivers.migration import KVM2Xen, Xen2KVM
 from chromogenic.drivers.virtualbox import ExportManager
 
 from django.conf import settings
@@ -91,9 +91,9 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
 
     #3. Convert from KVM-->Xen or Xen-->KVM (If necessary)
     if imaging_args.get('kvm_to_xen', False):
-        (image_path, kernel_path, ramdisk_path) = kvm_to_xen(image_path, download_dir)
+        (image_path, kernel_path, ramdisk_path) = KVM2Xen.convert(image_path, download_dir)
     elif imaging_args.get('xen_to_kvm', False):
-        (image_path, kernel_path, ramdisk_path) = xen_to_kvm(image_path, download_dir)
+        (image_path, kernel_path, ramdisk_path) = Xen2KVM.convert(image_path, download_dir)
 
     #4. Upload on new
     upload_kwargs = migrate.parse_upload_args(**imaging_args)
