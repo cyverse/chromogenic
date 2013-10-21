@@ -321,7 +321,7 @@ class ImageManager(BaseDriver):
                                              disk_format='ari', 
                                              is_public=is_public)
         opts = {
-            'kernel_id' : new_kernel.id
+            'kernel_id' : new_kernel.id,
             'ramdisk_id' : new_ramdisk.id
         }
         new_image = self.upload_local_image(image_file, image_name, 
