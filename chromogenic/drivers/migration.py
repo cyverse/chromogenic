@@ -16,41 +16,21 @@ import os
 
 from threepio import logger
 
-from chromogenic.common import create_file, mount_image, run_command
+from chromogenic.common import create_file, mount_image, run_command,\
+                               check_distro, apply_label
+
 from chromogenic.common import prepare_chroot_env,\
-                                   remove_chroot_env,\
-                                   get_latest_ramdisk,\
-                                   rebuild_ramdisk,\
+                               remove_chroot_env
+
+from chromogenic.common import retrieve_kernel_ramdisk,\
+                               rebuild_ramdisk
 
 from chromogenic.common import append_line_in_files,\
-                                   prepend_line_in_files,\
-                                   remove_line_in_files,\
-                                   replace_line_in_files,\
-                                   remove_multiline_in_files
+                               prepend_line_in_files,\
+                               remove_line_in_files,\
+                               replace_line_in_files,\
+                               remove_multiline_in_files
 
-
-def _determine_distro(image_path, mounted_path):
-    """
-    Given an image <image_path> that is already mounted at <mounted_path>
-    determine the distribution.
-    """
-    issue_file = os.path.join(mount_point, "etc/issue.net")
-    (issue_out,err) = run_command(["cat", issue_file])
-    distro = "unknown"
-    if 'ubuntu' in issue_out.lower():
-        distro = 'ubuntu'
-    elif 'centos' in issue_out.lower():
-        distro = 'centos'
-    return distro
-
-def retrieve_kernel_ramdisk(mount_point, kernel_dir, ramdisk_dir):
-    #Determine the latest (KVM) ramdisk to use
-    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point)
-
-    #Copy new kernel & ramdisk to the folder
-    local_ramdisk_path = self._copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir)
-    local_kernel_path = self._copy_kernel(mount_point, rmdisk_version, kernel_dir)
-    return (local_kernel_path, local_ramdisk_path)
 
 def _build_migration_dirs(download_dir):
     kernel_dir = os.path.join(download_dir, "kernel")
@@ -60,9 +40,6 @@ def _build_migration_dirs(download_dir):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
     return (kernel_dir, ramdisk_dir, mount_point)
-
-def apply_label(image_path, label='root'):
-    run_command(['e2label', image_path, 'root'])
 
 class VirtMigrationManager():
     """
@@ -82,7 +59,7 @@ class VirtMigrationManager():
 
             #Our mount_point is in use, the image is mounted at this path
             mounted_path = mount_point
-            distro = _determine_distro(image_path, mounted_path)
+            distro = check_distro(mounted_path)
 
             #Hooks for debian/rhel specific cleaning commands
             if distro == 'ubuntu':
@@ -92,9 +69,6 @@ class VirtMigrationManager():
 
             try:
                 prepare_chroot_env(mounted_path)
-                #Run this command in a prepared chroot
-                run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
-                             "yum install -qy kernel mkinitrd grub"])
                 #Hooks for debian/rhel specific chroot commands
                 if distro == 'ubuntu':
                      cls.debian_chroot(image_path, mount_point)
@@ -137,12 +111,6 @@ class VirtMigrationManager():
         return
 
 
-class KVM2Xen(VirtMigrationManager):
-    """
-    Use this class to convert a KVM image to Xen
-    """
-    pass
-
 class Xen2KVM(VirtMigrationManager):
     """
     Use this class to convert a XEN image to KVM
@@ -153,6 +121,9 @@ class Xen2KVM(VirtMigrationManager):
         #Here is an example of how to run a command in chroot:
         #run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
         #             "./single/command.sh arg1 arg2 ..."])
+        #Run this command in a prepared chroot
+        run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
+                     "apt-get install -qy kernel mkinitrd grub"])
         pass
 
     @classmethod
@@ -160,14 +131,16 @@ class Xen2KVM(VirtMigrationManager):
         #Here is an example of how to run a command in chroot:
         #run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
         #             "./single/command.sh arg1 arg2 ..."])
+        run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
+                     "yum install -qy kernel mkinitrd grub"])
         pass
 
     @classmethod
     def debian_mount(self, image_path, mounted_path):
-    """
-    Convert the disk image at <image_path>, mounted at <mounted_path>,
-    from XEN to KVM
-    """
+        """
+        Convert the disk image at <image_path>, mounted at <mounted_path>,
+        from XEN to KVM
+        """
         #This list will add a single line to an already-existing file
         append_line_file_list = [
                 #("line to add", "file_to_append")
@@ -210,46 +183,54 @@ exec /sbin/getty -L 38400 ttyS1 vt102
 
     @classmethod
     def rhel_mount(cls, image_path, mounted_path):
-    """
-    Migrate RHEL systems from XEN to KVM
-    Returns: ("/path/to/img", "/path/to/kvm_kernel", "/path/to/kvm_ramdisk")
-    """
-    #This list will append a single line to an already-existing file
-    append_line_file_list = [
-            #("line to add", "file_to_append")
-            ("S0:2345:respawn:/sbin/agetty ttyS0 115200", "etc/inittab"),
-            ("S1:2345:respawn:/sbin/agetty ttyS1 115200", "etc/inittab"),
-    ]
-
-    #TODO: This etc/fstab line may need some more customization
-
-    #This list will prepend a single line to an already-existing file
-    prepend_line_list = [
-        #("line to prepend", "file_to_prepend")
-        ("LABEL=root\t\t/\t\t\text3\tdefaults,errors=remount-ro 0 0",
-        "etc/fstab"),
+        """
+        Migrate RHEL systems from XEN to KVM
+        Returns: ("/path/to/img", "/path/to/kvm_kernel", "/path/to/kvm_ramdisk")
+        """
+        #This list will append a single line to an already-existing file
+        append_line_file_list = [
+                #("line to add", "file_to_append")
+                ("S0:2345:respawn:/sbin/agetty ttyS0 115200", "etc/inittab"),
+                ("S1:2345:respawn:/sbin/agetty ttyS1 115200", "etc/inittab"),
         ]
-    #This list removes lines matching the pattern from an existing file
-    remove_line_file_list = [#("pattern_match", "file_to_test")
-                             ("alias scsi", "etc/modprobe.conf"),
-                             ("atmo_boot", "etc/rc.local")]
 
-    # This list replaces lines matching a pattern from an existing file
-    replace_line_file_list = [#(pattern_match, pattern_replace, file_to_match)
-                              ("^\/dev\/sda", "\#\/dev\/sda", "etc/fstab"),
-                              ("^xvc0", "\#xvc0", "etc/inittab"),
-                              ("xenblk", "ata_piix", "etc/modprobe.conf"),
-                              ("xennet", "8139cp", "etc/modprobe.conf")]
-    #This list removes ALL lines between <pattern_1> and <pattern_2> from an
-    # existing file
-    multiline_delete_files = [
-        #("delete_from","delete_to","file_to_match")
-        ("depmod -a","\/usr\/bin\/ruby \/usr\/sbin\/atmo_boot", "etc/rc.local"),
-        ("depmod -a","\/usr\/bin\/ruby \/usr\/sbin\/atmo_boot", "etc/rc.d/rc.local")
-    ]
+        #TODO: This etc/fstab line may need some more customization
 
-    append_line_in_files(append_line_file_list, mounted_path)
-    prepend_line_in_files(prepend_line_list, mounted_path)
-    remove_line_in_files(remove_line_file_list, mounted_path)
-    replace_line_in_files(replace_line_file_list, mounted_path)
-    remove_multiline_in_files(multiline_delete_files, mounted_path)
+        #This list will prepend a single line to an already-existing file
+        prepend_line_list = [
+            #("line to prepend", "file_to_prepend")
+            ("LABEL=root\t\t/\t\t\text3\tdefaults,errors=remount-ro 0 0",
+            "etc/fstab"),
+            ]
+        #This list removes lines matching the pattern from an existing file
+        remove_line_file_list = [#("pattern_match", "file_to_test")
+                                 ("alias scsi", "etc/modprobe.conf"),
+                                 ("atmo_boot", "etc/rc.local")]
+
+        # This list replaces lines matching a pattern from an existing file
+        replace_line_file_list = [#(pattern_match, pattern_replace, file_to_match)
+                                  ("^\/dev\/sda", "\#\/dev\/sda", "etc/fstab"),
+                                  ("^xvc0", "\#xvc0", "etc/inittab"),
+                                  ("xenblk", "ata_piix", "etc/modprobe.conf"),
+                                  ("xennet", "8139cp", "etc/modprobe.conf")]
+        #This list removes ALL lines between <pattern_1> and <pattern_2> from an
+        # existing file
+        multiline_delete_files = [
+            #("delete_from","delete_to","file_to_match")
+            ("depmod -a","\/usr\/bin\/ruby \/usr\/sbin\/atmo_boot", "etc/rc.local"),
+            ("depmod -a","\/usr\/bin\/ruby \/usr\/sbin\/atmo_boot", "etc/rc.d/rc.local")
+        ]
+
+        append_line_in_files(append_line_file_list, mounted_path)
+        prepend_line_in_files(prepend_line_list, mounted_path)
+        remove_line_in_files(remove_line_file_list, mounted_path)
+        replace_line_in_files(replace_line_file_list, mounted_path)
+        remove_multiline_in_files(multiline_delete_files, mounted_path)
+
+
+class KVM2Xen(VirtMigrationManager):
+    """
+    Use this class to convert a KVM image to Xen
+    """
+    pass
+

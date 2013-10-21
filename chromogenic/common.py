@@ -138,6 +138,16 @@ def _mkinitrd_command(latest_rmdisk, rmdisk_version, preload=[], include=[]):
     mkinitrd_str += " -f /boot/%s %s" % (latest_rmdisk, rmdisk_version)
     return mkinitrd_str
 
+def retrieve_kernel_ramdisk(mount_point, kernel_dir, ramdisk_dir):
+    #Determine the latest (KVM) ramdisk to use
+    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point)
+
+    #Copy new kernel & ramdisk to the folder
+    local_ramdisk_path = self._copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir)
+    local_kernel_path = self._copy_kernel(mount_point, rmdisk_version, kernel_dir)
+    return (local_kernel_path, local_ramdisk_path)
+
+
 def rebuild_ramdisk(mounted_path, preload=[], include=[]):
     """
     This function will get more complicated in the future... We will need to
@@ -158,6 +168,8 @@ def rebuild_ramdisk(mounted_path, preload=[], include=[]):
 
 
 def get_latest_ramdisk(mounted_path):
+    #TODO: This will NOT work when migrating from KVM --> Xen!
+    #Fix Eventually!
     boot_dir = os.path.join(mounted_path,'boot/')
     output, _ = run_command(["/bin/bash", "-c", "ls -Fah %s" % boot_dir])
     #Determine the latest (KVM) ramdisk to use
@@ -317,16 +329,21 @@ def check_distro(root_dir=''):
     """
     etc_release_path = os.path.join(root_dir,'etc/*release*')
     (out,err) = run_command(['/bin/bash','-c','cat %s' % etc_release_path])
-    if 'CentOS' in out:
-        return 'CentOS'
+    if 'centos' in out.lower():
+        return 'centos'
+    elif 'ubuntu' in out.lower():
+        return 'ubuntu'
     else:
-        return 'Ubuntu'
+        return 'unknown'
 
 def _get_stage_files(root_dir, distro):
-    if distro == 'CentOS':
+    if distro == 'centos':
         run_command(['/bin/bash','-c','cp -f %s/extras/export/grub_files/centos/* %s/boot/grub/' % (settings.PROJECT_ROOT, root_dir)])
-    elif distro == 'Ubuntu':
+    elif distro == 'ubuntu':
         run_command(['/bin/bash','-c','cp -f %s/extras/export/grub_files/ubuntu/* %s/boot/grub/' % (settings.PROJECT_ROOT, root_dir)])
+
+def apply_label(image_path, label='root'):
+    run_command(['e2label', image_path, label])
 
 def _format_partition(disk, part, image_path, label=None):
     #This is a 'known constant'.. It should never change..
@@ -347,7 +364,7 @@ def _format_partition(disk, part, image_path, label=None):
     fs_size = unit_length * disk['unit_byte_size'] / BLOCK_SIZE
     run_command(['mkfs.ext3', '-b', '%s' % BLOCK_SIZE, loop_dev])
     if label:
-        run_command(['e2label', loop_dev, label])
+        apply_label(loop_dev, label)
     #Then unmount it all
     run_command(['losetup', '-d', loop_dev])
 
