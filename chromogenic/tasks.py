@@ -10,7 +10,7 @@ from core.email import send_image_request_email
 
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
 from chromogenic.drivers.openstack import ImageManager as OSImageManager
-from chromogenic.drivers.migration import EucaOSMigrater
+from chromogenic.drivers.migration import kvm_to_xen, xen_to_kvm
 from chromogenic.drivers.virtualbox import ExportManager
 
 from django.conf import settings
@@ -90,17 +90,10 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
                 **imaging_args)
 
     #3. Convert from KVM-->Xen or Xen-->KVM (If necessary)
-    distro = _determine_distro(image_path, mount_point)
-    if imaging_args.get('kvm_to_xen'):
-        if distro == 'ubuntu':
-            (image_path, kernel_path, ramdisk_path) = kvm_debian_migration(image_path, download_dir)
-        elif distro == 'centos':
-            (image_path, kernel_path, ramdisk_path) = kvm_rhel_migration(image_path, download_dir)
-    elif imaging_args.get('xen_to_kvm'):
-        if distro == 'ubuntu':
-            (image_path, kernel_path, ramdisk_path) = xen_debian_migration(image_path, download_dir)
-        elif distro == 'centos':
-            (image_path, kernel_path, ramdisk_path) = xen_rhel_migration(image_path, download_dir)
+    if imaging_args.get('kvm_to_xen', False):
+        (image_path, kernel_path, ramdisk_path) = kvm_to_xen(image_path, download_dir)
+    elif imaging_args.get('xen_to_kvm', False):
+        (image_path, kernel_path, ramdisk_path) = xen_to_kvm(image_path, download_dir)
 
     #4. Upload on new
     upload_kwargs = migrate.parse_upload_args(**imaging_args)

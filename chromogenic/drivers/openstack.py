@@ -176,8 +176,11 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
-        upload_args = self.parse_upload_args(snapshot, image_name,
-                                              download_location, **kwargs)
+        upload_args = self.parse_upload_args(image_name, download_location,
+                                             kernel_id=snapshot.properties['kernel_id'],
+                                             ramdisk_id=snapshot.properties['ramdisk_id'],
+                                             **kwargs)
+
         new_image = self.upload_local_image(**upload_args)
 
         #Step 4: Cleanup after yourself
@@ -187,12 +190,41 @@ class ImageManager(BaseDriver):
 
         return new_image.id
 
-    def parse_upload_args(self, snapshot, image_name,
-                           download_location, **kwargs):
+    def parse_upload_args(self, image_name, download_location, **kwargs):
         """
         Use this function when converting 'create_image' args to
         'upload_local_image' args
         """
+        if kwargs.get('kernel_id') and kwargs.get('ramdisk_id'):
+            #Both kernel_id && ramdisk_id
+            #Prepare for upload_local_image()
+            return self._parse_args_upload_local_image(image_name,
+                                                  download_location,
+                                                  **kwargs)
+        elif kwargs.get('kernel_path') and kwargs.get('ramdisk_path'):
+            #Both kernel_path && ramdisk_path
+            #Prepare for upload_full_image()
+            return self._parse_args_upload_full_image(image_name,
+                    download_location, **kwargs)
+        #one path and one id OR no path no id
+        else:
+            raise Exception ("Cannot create upload arguments without either:"
+                             " 1. kernel_id + ramdisk_id OR"
+                             " 2. kernel_path + ramdisk_path")
+
+    def _parse_args_upload_full_image(self, image_name,
+                                       download_location, **kwargs)
+        upload_args = {
+            'image_name':image_name, 
+            'image_file':download_location,
+            'kernel_file':kwargs['kernel_path'], 
+            'ramdisk_file':kwargs['ramdisk_path'], 
+            'is_public':kwargs.get('public',True)
+        }
+        return upload_args
+
+    def _parse_args_upload_local_image(self, image_name,
+                                       download_location, **kwargs)
         upload_args = {
              'image_location':download_location,
              'image_name':image_name,
@@ -201,8 +233,8 @@ class ImageManager(BaseDriver):
              'is_public':kwargs.get('public', True), 
              'private_user_list':kwargs.get('private_user_list', []), 
              'properties':{
-                 'kernel_id' : snapshot.properties['kernel_id'],
-                 'ramdisk_id' : snapshot.properties['ramdisk_id']
+                 'kernel_id' :  kwargs['kernel_id'],
+                 'ramdisk_id' : kwargs['ramdisk_id']
              }
         }
         return upload_args
