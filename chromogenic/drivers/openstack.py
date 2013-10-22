@@ -188,7 +188,7 @@ class ImageManager(BaseDriver):
             snapshot.delete()
             wildcard_remove(download_dir)
 
-        return new_image.id
+        return new_image
 
     def parse_upload_args(self, image_name, image_path, **kwargs):
         """
@@ -302,9 +302,10 @@ class ImageManager(BaseDriver):
                                              is_public=is_public,
                                              properties=properties,
                                              data=open(image_path))
+        logger.debug("New image created: %s - %s" % (image_name, new_image.id))
         #TODO: For username in private_user_list
         #    share_image(new_meta,username)
-        return new_image
+        return new_image.id
 
     def upload_full_image(self, image_name, image_path,
                           kernel_path, ramdisk_path, is_public=True):
@@ -328,14 +329,15 @@ class ImageManager(BaseDriver):
                                              disk_format='ari', 
                                              is_public=is_public)
         opts = {
-            'kernel_id' : new_kernel.id,
-            'ramdisk_id' : new_ramdisk.id
+            'kernel_id' : new_kernel,
+            'ramdisk_id' : new_ramdisk
         }
         new_image = self.upload_local_image(image_name, image_path, 
                                              container_format='ami', 
                                              disk_format='ami', 
                                              is_public=is_public,
                                              properties=opts)
+        #TODO: Cleanup code now that its uploaded.. Or do it elsewhere.
         return new_image
 
     def delete_images(self, image_id=None, image_name=None):
