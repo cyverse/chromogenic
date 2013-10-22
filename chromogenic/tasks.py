@@ -101,7 +101,7 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
     imaging_args['ramdisk_path'] = ramdisk_path
     #4. Upload on new
     upload_kwargs = migrate.parse_upload_args(**imaging_args)
-    new_image_id = migrate.upload_local_image(**upload_kwargs)
+    new_image_id = migrate.upload_image(**upload_kwargs)
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)

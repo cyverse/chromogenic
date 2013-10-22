@@ -216,9 +216,9 @@ class ImageManager(BaseDriver):
                                       image_path, **kwargs):
         upload_args = {
             'image_name':image_name, 
-            'image_file':image_path,
-            'kernel_file':kwargs['kernel_path'], 
-            'ramdisk_file':kwargs['ramdisk_path'], 
+            'image_path':image_path,
+            'kernel_path':kwargs['kernel_path'], 
+            'ramdisk_path':kwargs['ramdisk_path'], 
             'is_public':kwargs.get('public',True)
         }
         return upload_args
@@ -281,7 +281,13 @@ class ImageManager(BaseDriver):
         logger.debug("Image downloaded to %s" % download_location)
         return image
 
-    def upload_local_image(self, image_path, image_name,
+    def upload_image(self, image_name, image_path, **upload_args):
+        if upload_args.get('kernel_path') and upload_args.get('ramdisk_path'):
+            return self.upload_full_image(image_name, image_path, **upload_args)
+        else:
+            return self.upload_local_image(image_name, image_path, **upload_args)
+
+    def upload_local_image(self, image_name, image_path,
                      container_format='ovf',
                      disk_format='raw',
                      is_public=True, private_user_list=[], properties={}):
@@ -299,24 +305,24 @@ class ImageManager(BaseDriver):
         #    share_image(new_meta,username)
         return new_image
 
-    def upload_full_image(self, image_name, image_file,
-                          kernel_file, ramdisk_file, is_public=True):
+    def upload_full_image(self, image_name, image_path,
+                          kernel_path, ramdisk_path, is_public=True):
         """
         Upload a full image to glance..
             name - Name of image when uploaded to OpenStack
-            image_file - Path containing the image file
-            kernel_file - Path containing the kernel file
-            ramdisk_file - Path containing the ramdisk file
+            image_path - Path containing the image file
+            kernel_path - Path containing the kernel file
+            ramdisk_path - Path containing the ramdisk file
         Requires 3 separate filepaths to uploads the Ramdisk, Kernel, and Image
         This is useful for migrating from Eucalyptus/AWS --> Openstack
         """
-        new_kernel = self.upload_local_image(kernel_file,
-                                             'eki-%s' % image_name,
+        new_kernel = self.upload_local_image('eki-%s' % image_name,
+                                             kernel_path,
                                              container_format='aki', 
                                              disk_format='aki', 
                                              is_public=is_public)
-        new_ramdisk = self.upload_local_image(ramdisk_file,
-                                             'eri-%s' % image_name,
+        new_ramdisk = self.upload_local_image('eri-%s' % image_name,
+                                             ramdisk_path,
                                              container_format='ari', 
                                              disk_format='ari', 
                                              is_public=is_public)
@@ -324,7 +330,7 @@ class ImageManager(BaseDriver):
             'kernel_id' : new_kernel.id,
             'ramdisk_id' : new_ramdisk.id
         }
-        new_image = self.upload_local_image(image_file, image_name, 
+        new_image = self.upload_local_image(image_name, image_path, 
                                              container_format='ami', 
                                              disk_format='ami', 
                                              is_public=is_public,

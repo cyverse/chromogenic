@@ -222,8 +222,8 @@ class ImageManager(BaseDriver):
 
         #Get image location and unbundle the files based on the manifest and
         #parts
-        image_location = machine.location
-        whole_image = self._download_euca_image(image_location, download_dir,
+        image_path = machine.location
+        whole_image = self._download_euca_image(image_path, download_dir,
                                                 part_dir, self.pk_path)[0]
         #Return download_path and image_path
         return download_dir, os.path.join(download_dir, whole_image)
@@ -232,7 +232,7 @@ class ImageManager(BaseDriver):
         reservation, instance = self.get_reservation(instance_id)
         upload_kwargs = {
             'image_name' : image_name,
-            'image_location' : image_path,
+            'image_path' : image_path,
             'parent_emi' : instance.image_id,
         }
 
@@ -266,8 +266,14 @@ class ImageManager(BaseDriver):
 
         return upload_kwargs
 
+    def upload_image(self, image_name, image_path, **upload_args):
+        if upload_args.get('kernel_path') and upload_args.get('ramdisk_path'):
+            return self.upload_full_image(image_name, image_path, **upload_args)
+        else:
+            return self.upload_local_image(image_name, image_path, **upload_args)
 
-    def upload_local_image(self, image_location, image_name, kernel, ramdisk,
+
+    def upload_local_image(self, image_name, image_path, kernel, ramdisk,
                             destination_path, parent_emi, bucket_name,
                             public, private_user_list):
         """
@@ -276,7 +282,7 @@ class ImageManager(BaseDriver):
         ancestor_ami_ids = [parent_emi, ] if parent_emi else []
 
         new_image_id = self._upload_and_register(
-                image_location, bucket_name, kernel, ramdisk,
+                image_path, bucket_name, kernel, ramdisk,
                 destination_path, ancestor_ami_ids)
 
         if not public:
@@ -300,7 +306,7 @@ class ImageManager(BaseDriver):
                 logger.exception(call_failed)
         return new_image_id
 
-    def upload_full_image(self, image_location, image_name,
+    def upload_full_image(self, image_path, image_name,
                           kernel_path, ramdisk_path, bucket_name,
                           download_dir='/tmp', private_users=[], uploaded_by='admin'):
         """
@@ -314,20 +320,20 @@ class ImageManager(BaseDriver):
         ramdisk_id = self._upload_ramdisk(ramdisk_path, bucket_name, download_dir)
 
         new_image_path = os.path.join(
-                            os.path.dirname(image_location),
+                            os.path.dirname(image_path),
                             '%s%s' % (self._format_meta_name(image_name,uploaded_by),
                                       os.path.splitext(image_path)[1]))
         #In order to use the image name we must change the name during upload
         # to match the 'metadata' criteria for an image on atmosphere
         try:
-            os.rename(image_location,new_image_path)
+            os.rename(image_path,new_image_path)
             new_image_id = self.upload_local_image(
-                    new_image_path, image_name,
+                    image_name, new_image_path,
                     kernel_id, ramdisk_id,
                     download_dir, None, bucket_name,
                     public, private_users) 
         finally:
-            os.rename(new_image_path,image_location)
+            os.rename(new_image_path,image_path)
 
         return (kernel_id, ramdisk_id, new_image_id)
     def delete_image(self, image_id, bucket_name=None):
@@ -781,7 +787,7 @@ class ImageManager(BaseDriver):
                          % s3_manifest_path)
             euca_conn = self.euca.make_connection()
             image_id = euca_conn.register_image(
-                image_location=s3_manifest_path)
+                image_path=s3_manifest_path)
             return image_id
         except Exception, ex:
             logger.error(ex)
@@ -817,11 +823,11 @@ class ImageManager(BaseDriver):
     Indirect Download Image Functions
     These functions are called indirectly during the 'download_image' process.
     """
-    def _download_euca_image(self, image_location, download_dir, part_dir,
+    def _download_euca_image(self, image_path, download_dir, part_dir,
             pk_path):
         logger.debug("Complete. Begin Download of Image  @ %s.."
                      % datetime.now())
-        (bucket_name, manifest_loc) = image_location.split('/')
+        (bucket_name, manifest_loc) = image_path.split('/')
         whole_image =  os.path.join(
             download_dir,
             manifest_loc.replace('.manifest.xml',''))
