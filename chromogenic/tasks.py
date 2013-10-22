@@ -73,7 +73,7 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
     download_location = manager.download_instance(**download_args)
 
     download_dir = os.path.dirname(download_location)
-    mount_point = os.path.join(download_dir, 'mount/'),
+    mount_point = os.path.join(download_dir, 'mount/')
     if not os.path.exists(mount_point):
         os.makedirs(mount_point)
     #2. clean from orig
