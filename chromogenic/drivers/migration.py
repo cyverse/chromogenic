@@ -29,7 +29,8 @@ from chromogenic.common import append_line_in_files,\
                                prepend_line_in_files,\
                                remove_line_in_files,\
                                replace_line_in_files,\
-                               remove_multiline_in_files
+                               remove_multiline_in_files,\
+                               remove_files
 
 
 def _build_migration_dirs(download_dir):

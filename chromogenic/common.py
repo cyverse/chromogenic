@@ -143,10 +143,26 @@ def retrieve_kernel_ramdisk(mount_point, kernel_dir, ramdisk_dir):
     latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point)
 
     #Copy new kernel & ramdisk to the folder
-    local_ramdisk_path = self._copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir)
-    local_kernel_path = self._copy_kernel(mount_point, rmdisk_version, kernel_dir)
+    local_ramdisk_path = _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir)
+    local_kernel_path = _copy_kernel(mount_point, rmdisk_version, kernel_dir)
     return (local_kernel_path, local_ramdisk_path)
 
+def _copy_kernel(mount_point, rmdisk_version, kernel_dir):
+    local_kernel_path = os.path.join(kernel_dir,
+                                     "vmlinuz-%s" % rmdisk_version)
+    mount_kernel_path = os.path.join(mount_point,
+                                     "boot/vmlinuz-%s" % rmdisk_version)
+    run_command(["/bin/cp", mount_kernel_path, local_kernel_path])
+    return local_kernel_path
+
+def _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir):
+    local_ramdisk_path = os.path.join(ramdisk_dir,
+                                      "initrd-%s.img" % rmdisk_version)
+    mount_ramdisk_path = os.path.join(mount_point,
+                                      "boot/initrd-%s.img"
+                                      % rmdisk_version)
+    run_command(["/bin/cp", mount_ramdisk_path, local_ramdisk_path])
+    return local_ramdisk_path
 
 def rebuild_ramdisk(mounted_path, preload=[], include=[]):
     """

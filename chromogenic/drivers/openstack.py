@@ -190,7 +190,7 @@ class ImageManager(BaseDriver):
 
         return new_image.id
 
-    def parse_upload_args(self, image_name, download_location, **kwargs):
+    def parse_upload_args(self, image_name, image_path, **kwargs):
         """
         Use this function when converting 'create_image' args to
         'upload_local_image' args
@@ -199,13 +199,13 @@ class ImageManager(BaseDriver):
             #Both kernel_id && ramdisk_id
             #Prepare for upload_local_image()
             return self._parse_args_upload_local_image(image_name,
-                                                  download_location,
+                                                  image_path,
                                                   **kwargs)
         elif kwargs.get('kernel_path') and kwargs.get('ramdisk_path'):
             #Both kernel_path && ramdisk_path
             #Prepare for upload_full_image()
             return self._parse_args_upload_full_image(image_name,
-                    download_location, **kwargs)
+                    image_path, **kwargs)
         #one path and one id OR no path no id
         else:
             raise Exception("Cannot create upload arguments without either:"
@@ -213,10 +213,10 @@ class ImageManager(BaseDriver):
                              " 2. kernel_path + ramdisk_path")
 
     def _parse_args_upload_full_image(self, image_name,
-                                      download_location, **kwargs):
+                                      image_path, **kwargs):
         upload_args = {
             'image_name':image_name, 
-            'image_file':download_location,
+            'image_file':image_path,
             'kernel_file':kwargs['kernel_path'], 
             'ramdisk_file':kwargs['ramdisk_path'], 
             'is_public':kwargs.get('public',True)
@@ -224,9 +224,9 @@ class ImageManager(BaseDriver):
         return upload_args
 
     def _parse_args_upload_local_image(self, image_name,
-                                       download_location, **kwargs):
+                                       image_path, **kwargs):
         upload_args = {
-             'image_location':download_location,
+             'image_path':image_path,
              'image_name':image_name,
              'container_format':'ami',
              'disk_format':'ami',
@@ -281,7 +281,7 @@ class ImageManager(BaseDriver):
         logger.debug("Image downloaded to %s" % download_location)
         return image
 
-    def upload_local_image(self, image_location, image_name,
+    def upload_local_image(self, image_path, image_name,
                      container_format='ovf',
                      disk_format='raw',
                      is_public=True, private_user_list=[], properties={}):
@@ -294,7 +294,7 @@ class ImageManager(BaseDriver):
                                              disk_format=disk_format,
                                              is_public=is_public,
                                              properties=properties,
-                                             data=open(image_location))
+                                             data=open(image_path))
         #TODO: For username in private_user_list
         #    share_image(new_meta,username)
         return new_image

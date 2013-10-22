@@ -34,7 +34,8 @@ from boto.s3.key import Key
 from euca2ools import Euca2ool, FileValidationError
 
 from chromogenic.common import run_command, wildcard_remove
-from chromogenic.common import mount_image, get_latest_ramdisk
+from chromogenic.common import mount_image, get_latest_ramdisk,\
+                               _copy_kernel, _copy_ramdisk
 from django.conf import settings
 from threepio import logger
 from chromogenic.drivers.base import BaseDriver
@@ -227,11 +228,11 @@ class ImageManager(BaseDriver):
         #Return download_path and image_path
         return download_dir, os.path.join(download_dir, whole_image)
 
-    def parse_upload_args(self, instance_id, image_name, download_location, **kwargs):
+    def parse_upload_args(self, instance_id, image_name, image_path, **kwargs):
         reservation, instance = self.get_reservation(instance_id)
         upload_kwargs = {
             'image_name' : image_name,
-            'image_location' : download_location,
+            'image_location' : image_path,
             'parent_emi' : instance.image_id,
         }
 
@@ -369,8 +370,8 @@ class ImageManager(BaseDriver):
         latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point)
 
         #Copy new kernel & ramdisk to the folder
-        local_ramdisk_path = self._copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir)
-        local_kernel_path = self._copy_kernel(mount_point, rmdisk_version, kernel_dir)
+        local_ramdisk_path = _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir)
+        local_kernel_path = _copy_kernel(mount_point, rmdisk_version, kernel_dir)
 
         run_command(["umount", mount_point])
 
@@ -470,23 +471,6 @@ class ImageManager(BaseDriver):
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path)
         return (kernel_dir, ramdisk_dir, mount_point)
-
-    def _copy_kernel(self, mount_point, rmdisk_version, kernel_dir):
-        local_kernel_path = os.path.join(kernel_dir,
-                                         "vmlinuz-%s" % rmdisk_version)
-        mount_kernel_path = os.path.join(mount_point,
-                                         "boot/vmlinuz-%s" % rmdisk_version)
-        run_command(["/bin/cp", mount_kernel_path, local_kernel_path])
-        return local_kernel_path
-
-    def _copy_ramdisk(self, mount_point, rmdisk_version, ramdisk_dir):
-        local_ramdisk_path = os.path.join(ramdisk_dir,
-                                          "initrd-%s.img" % rmdisk_version)
-        mount_ramdisk_path = os.path.join(mount_point,
-                                          "boot/initrd-%s.img"
-                                          % rmdisk_version)
-        run_command(["/bin/cp", mount_ramdisk_path, local_ramdisk_path])
-        return local_ramdisk_path
 
     def _get_latest_ramdisk(self, mount_point):
         (output,stder) = run_command(["/usr/sbin/chroot", mount_point, "/bin/bash", "-c", "ls -Fah /boot/"])

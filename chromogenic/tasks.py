@@ -69,8 +69,8 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
     manager = orig
 
     #1. Download from orig
-    download_args = manager.parse_download_args(**imaging_args)
-    download_location = manager.download_instance(**download_args)
+    download_kwargs = manager.parse_download_args(**imaging_args)
+    download_location = manager.download_instance(**download_kwargs)
 
     download_dir = os.path.dirname(download_location)
     mount_point = os.path.join(download_dir, 'mount/')
@@ -91,10 +91,14 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
 
     #3. Convert from KVM-->Xen or Xen-->KVM (If necessary)
     if imaging_args.get('kvm_to_xen', False):
-        (image_path, kernel_path, ramdisk_path) = KVM2Xen.convert(image_path, download_dir)
+        (image_path, kernel_path, ramdisk_path) =\
+            KVM2Xen.convert(download_location, download_dir)
     elif imaging_args.get('xen_to_kvm', False):
-        (image_path, kernel_path, ramdisk_path) = Xen2KVM.convert(image_path, download_dir)
-
+        (image_path, kernel_path, ramdisk_path) =\
+            Xen2KVM.convert(download_location, download_dir)
+    imaging_args['image_path'] = image_path
+    imaging_args['kernel_path'] = kernel_path
+    imaging_args['ramdisk_path'] = ramdisk_path
     #4. Upload on new
     upload_kwargs = migrate.parse_upload_args(**imaging_args)
     new_image_id = migrate.upload_local_image(**upload_kwargs)
