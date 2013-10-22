@@ -295,7 +295,8 @@ class ImageManager(BaseDriver):
         Upload a single file as a glance image
         Defaults ovf/raw are correct for a eucalyptus .img file
         """
-        new_image = self.glance.images.create(name=name,
+        logger.debug("Saving image %s - %s" % (image_name, image_path))
+        new_image = self.glance.images.create(name=image_name,
                                              container_format=container_format,
                                              disk_format=disk_format,
                                              is_public=is_public,

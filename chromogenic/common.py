@@ -124,13 +124,17 @@ def _line_exists_in_file(needle, filepath):
     return False
 
    
-def _mkinitrd_command(latest_rmdisk, rmdisk_version, preload=[], include=[]):
+def _mkinitrd_command(latest_rmdisk, rmdisk_version, distro='centos', preload=[], include=[]):
     preload.extend(['ahci'])
     include.extend(['virtio_pci', 'virtio_ring',
                     'virtio_blk', 'virtio_net',
                     'virtio_balloon', 'virtio'])
 
-    mkinitrd_str = "mkinitrd"
+    if distro == 'centos':
+        mkinitrd_str = "mkinitrd"
+    elif distro == 'ubuntu':
+        mkinitrd_str = "mkinitramfs"
+
     for module in preload:
         mkinitrd_str += " --preload %s" % module
     for module in include:
@@ -157,9 +161,9 @@ def _copy_kernel(mount_point, rmdisk_version, kernel_dir):
 
 def _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir):
     local_ramdisk_path = os.path.join(ramdisk_dir,
-                                      "initrd-%s.img" % rmdisk_version)
+                                      "initrd.img-%s" % rmdisk_version)
     mount_ramdisk_path = os.path.join(mount_point,
-                                      "boot/initrd-%s.img"
+                                      "boot/initrd.img-%s"
                                       % rmdisk_version)
     run_command(["/bin/cp", mount_ramdisk_path, local_ramdisk_path])
     return local_ramdisk_path
@@ -172,8 +176,10 @@ def rebuild_ramdisk(mounted_path, preload=[], include=[]):
 
     #Run this command after installing the latest (non-xen) kernel
     latest_rmdisk, rmdisk_version = get_latest_ramdisk(mounted_path)
+    distro = check_distro(mounted_path)
     mkinitrd_str = _mkinitrd_command(latest_rmdisk, rmdisk_version,
-                                     preload=preload, include=include)
+                                     distro=distro, preload=preload,
+                                     include=include)
     try:
         prepare_chroot_env(mounted_path)
         #Create a brand new ramdisk using the KVM variables set above
@@ -194,7 +200,7 @@ def get_latest_ramdisk(mounted_path):
     for line in output.split('\n'):
         if 'initrd' in line and 'xen' not in line:
             latest_rmdisk = line
-            rmdisk_version = line.replace('.img','').replace('initrd-','')
+            rmdisk_version = line.replace('initrd.img-','')
     if not latest_rmdisk or not rmdisk_version:
         raise Exception("Could not determine the latest ramdisk. Is the "
                         "ramdisk located in %s?" % boot_dir)
