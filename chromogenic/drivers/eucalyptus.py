@@ -103,8 +103,7 @@ class ImageManager(BaseDriver):
 
         #Step 1. Download
         download_args = self.parse_download_args(instance_id, image_name, **kwargs)
-        download_location = self.download_instance(
-                instance_id, **download_args)
+        download_location = self.download_instance(**download_args)
         download_dir = download_args['download_dir']
 
         #Step 2. Mount and Clean image 

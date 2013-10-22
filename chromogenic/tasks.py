@@ -70,7 +70,7 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
 
     #1. Download from orig
     download_args = manager.parse_download_args(**imaging_args)
-    download_location = manager.download_instance(**imaging_args)
+    download_location = manager.download_instance(**download_args)
 
     download_dir = os.path.dirname(download_location)
     mount_point = os.path.join(download_dir, 'mount/'),
