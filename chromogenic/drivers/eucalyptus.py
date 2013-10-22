@@ -128,6 +128,27 @@ class ImageManager(BaseDriver):
         reservation, instance = self.get_reservation(instance_id)
         #Start defining the **kwargs, setting defaults when necessary
         download_args = {}
+
+        download_args['instance_id'] = instance_id
+
+        #  download_dir - Override the default download dir
+        #  (All files will be temporarilly stored here, then deleted)
+        download_dir= kwargs.get('download_dir','/tmp')
+
+        # Create our own sub-system inside the chosen directory
+        # <dir>/<username>/<instance>
+        # This helps us keep track of ... everything
+        download_dir = os.path.join(
+                download_dir,
+                reservation.owner_id, instance_id)
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
+
+        download_args['download_dir'] = download_dir
+
+        #  local_img_path - Override the default path to save the final image
+        download_args['download_location'] = kwargs.get('download_location',
+                os.path.join(download_dir, '%s.img' % meta_name))
         #REQUIRED kwargs:
         #  node_scp_info - Dictionary for accessing the node controller,
         #  should contain: 
@@ -152,24 +173,6 @@ class ImageManager(BaseDriver):
                                        creator='admin'))
         download_args['meta_name'] = meta_name
 
-        #  download_dir - Override the default download dir
-        #  (All files will be temporarilly stored here, then deleted)
-        download_dir= kwargs.get('download_dir','/tmp')
-
-        # Create our own sub-system inside the chosen directory
-        # <dir>/<username>/<instance>
-        # This helps us keep track of ... everything
-        download_dir = os.path.join(
-                download_dir,
-                reservation.owner_id, instance_id)
-        if not os.path.exists(download_dir):
-            os.makedirs(download_dir)
-
-        download_args['download_dir'] = download_dir
-
-        #  local_img_path - Override the default path to save the final image
-        download_args['download_location'] = kwargs.get('download_location',
-                os.path.join(download_dir, '%s.img' % meta_name))
         #  remote_img_path - Override the default path to the image
         #  (On the Node Controller -- Must be exact path to the root disk)
         download_args['remote_img_path'] = kwargs.get('remote_img_path',
