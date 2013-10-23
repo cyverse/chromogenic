@@ -143,15 +143,20 @@ def _mkinitrd_command(latest_rmdisk, rmdisk_version, distro='centos', preload=[]
     return mkinitrd_str
 
 def retrieve_kernel_ramdisk(mount_point, kernel_dir, ramdisk_dir):
+    distro = check_distro(mount_point)
     #Determine the latest (KVM) ramdisk to use
-    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point)
-
+    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point, distro)
+    #TODO: copy name changes based on distro
     #Copy new kernel & ramdisk to the folder
-    local_ramdisk_path = _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir)
-    local_kernel_path = _copy_kernel(mount_point, rmdisk_version, kernel_dir)
+    local_ramdisk_path = _copy_ramdisk(mount_point, rmdisk_version,
+            ramdisk_dir, distro)
+    local_kernel_path = _copy_kernel(mount_point, rmdisk_version, kernel_dir,
+            distro)
+
+
     return (local_kernel_path, local_ramdisk_path)
 
-def _copy_kernel(mount_point, rmdisk_version, kernel_dir):
+def _copy_kernel(mount_point, rmdisk_version, kernel_dir, distro):
     local_kernel_path = os.path.join(kernel_dir,
                                      "vmlinuz-%s" % rmdisk_version)
     mount_kernel_path = os.path.join(mount_point,
@@ -159,7 +164,7 @@ def _copy_kernel(mount_point, rmdisk_version, kernel_dir):
     run_command(["/bin/cp", mount_kernel_path, local_kernel_path])
     return local_kernel_path
 
-def _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir):
+def _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir, distro):
     local_ramdisk_path = os.path.join(ramdisk_dir,
                                       "initrd.img-%s" % rmdisk_version)
     mount_ramdisk_path = os.path.join(mount_point,
@@ -189,7 +194,7 @@ def rebuild_ramdisk(mounted_path, preload=[], include=[]):
         remove_chroot_env(mounted_path)
 
 
-def get_latest_ramdisk(mounted_path):
+def get_latest_ramdisk(mounted_path, distro):
     #TODO: This will NOT work when migrating from KVM --> Xen!
     #Fix Eventually!
     boot_dir = os.path.join(mounted_path,'boot/')
@@ -200,6 +205,7 @@ def get_latest_ramdisk(mounted_path):
     for line in output.split('\n'):
         if 'initrd' in line and 'xen' not in line:
             latest_rmdisk = line
+            #TODO: Distro determines how this line should be parsed (rmdisk_version)
             rmdisk_version = line.replace('initrd.img-','')
     if not latest_rmdisk or not rmdisk_version:
         raise Exception("Could not determine the latest ramdisk. Is the "

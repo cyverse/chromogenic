@@ -787,7 +787,7 @@ class ImageManager(BaseDriver):
                          % s3_manifest_path)
             euca_conn = self.euca.make_connection()
             image_id = euca_conn.register_image(
-                image_path=s3_manifest_path)
+                image_location=s3_manifest_path)
             return image_id
         except Exception, ex:
             logger.error(ex)
