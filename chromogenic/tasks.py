@@ -8,6 +8,7 @@ from threepio import logger
 
 from core.email import send_image_request_email
 
+from chromogenic.common import wildcard_remove
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
 from chromogenic.drivers.openstack import ImageManager as OSImageManager
 from chromogenic.drivers.migration import KVM2Xen, Xen2KVM
@@ -102,6 +103,10 @@ def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **ima
     #4. Upload on new
     upload_kwargs = migrate.parse_upload_args(**imaging_args)
     new_image_id = migrate.upload_image(**upload_kwargs)
+
+    #5. Cleanup, return
+    if imaging_args.get('keep_image',False):
+        wildcard_remove(download_dir)
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)

@@ -688,3 +688,21 @@ def _map_str_to_int(dictionary):
         if type(v) == str and v.isdigit():
             dictionary[k] = int(v)
     return dictionary
+
+
+def build_imaging_dirs(download_dir, full_image=False):
+    mount_point = os.path.join(download_dir, "mount_point")
+    imaging_dirs = [mount_point]
+    if full_image:
+        kernel_dir = os.path.join(download_dir, "kernel")
+        ramdisk_dir = os.path.join(download_dir, "ramdisk")
+        imaging_dirs.extend([kernel_dir, ramdisk_dir])
+
+    for dir_path in imaging_dirs:
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
+    if full_image:
+        return (kernel_dir, ramdisk_dir, mount_point)
+    return mount_point
+

@@ -33,23 +33,21 @@ from chromogenic.common import append_line_in_files,\
                                remove_files
 
 
-def _build_migration_dirs(download_dir):
-    kernel_dir = os.path.join(download_dir, "kernel")
-    ramdisk_dir = os.path.join(download_dir, "ramdisk")
-    mount_point = os.path.join(download_dir, "mount_point")
-    for dir_path in [kernel_dir, ramdisk_dir, mount_point]:
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-    return (kernel_dir, ramdisk_dir, mount_point)
-
-class VirtMigrationManager():
+class MigrationPlan():
     """
-    This class defines the methods expected from a 
-    Virtualization Migration Manager
+    Migration Plans are used to convert an image between two virtualization
+    softwares
+
+    The programmer should define a set of steps that are required to convert
+    any image (taking into account different distributions)
+
+    The user should provide a path to a local image file and call
+    MigrationPlan.convert(...)
     """
     @classmethod
     def convert(cls, image_path, upload_dir):
-        (kernel_dir, ramdisk_dir, mount_point) = _build_migration_dirs(upload_dir)
+        (kernel_dir, ramdisk_dir, mount_point) = build_imaging_dirs(upload_dir,
+                full_image=True)
 
         apply_label(image_path, label='root')  # TODO: Is this necessary?
 
@@ -112,9 +110,27 @@ class VirtMigrationManager():
         return
 
 
-class Xen2KVM(VirtMigrationManager):
+
+
+class KVM2Xen(MigrationPlan):
     """
-    Use this class to convert a XEN image to KVM
+    This MigrationPlan is a STUB
+    It should define a path to convert KVM images to XEN images
+    """
+    @classmethod
+    def get_kernel_ramdisk(cls, mount_point, kernel_dir, ramdisk_dir):
+        #Rebuild ramdisk in case changes were made
+        rebuild_ramdisk(mount_point, ignore_prefix='el5')
+        #Retrieve the kernel/ramdisk pair and return
+        (kernel_path,
+         ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
+                                                 kernel_dir, ramdisk_dir,
+                                                 ignore_prefix='el5')
+        return (kernel_path, ramdisk_path)
+
+class Xen2KVM(MigrationPlan):
+    """
+    This MigrationPlan will convert a XEN image to KVM image
     """
 
     @classmethod
@@ -236,20 +252,3 @@ exec /sbin/getty -L 38400 ttyS1 vt102
         remove_line_in_files(remove_line_file_list, mounted_path)
         replace_line_in_files(replace_line_file_list, mounted_path)
         remove_multiline_in_files(multiline_delete_files, mounted_path)
-
-
-class KVM2Xen(VirtMigrationManager):
-    """
-    Use this class to convert a KVM image to Xen
-    """
-    @classmethod
-    def get_kernel_ramdisk(cls, mount_point, kernel_dir, ramdisk_dir):
-        #Rebuild ramdisk in case changes were made
-        rebuild_ramdisk(mount_point, ignore_prefix='el5')
-        #Retrieve the kernel/ramdisk pair and return
-        (kernel_path,
-         ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
-                                                 kernel_dir, ramdisk_dir,
-                                                 ignore_prefix='el5')
-        return (kernel_path, ramdisk_path)
-
