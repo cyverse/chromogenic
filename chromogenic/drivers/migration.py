@@ -78,8 +78,7 @@ class VirtMigrationManager():
             finally:
                 remove_chroot_env(mounted_path)
 
-            (kernel_path,
-             ramdisk_path) = cls.get_kernel_ramdisk(mount_point,
+            (kernel_path, ramdisk_path) = cls.get_kernel_ramdisk(mount_point,
                                                     kernel_dir, ramdisk_dir)
     
             #Use the image, kernel, and ramdisk paths
@@ -123,8 +122,7 @@ class Xen2KVM(VirtMigrationManager):
         #Rebuild ramdisk in case changes were made
         rebuild_ramdisk(mounted_path, ignore_suffix='el5xen')
         #Retrieve the kernel/ramdisk pair and return
-        (kernel_path,
-         ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
+        (kernel_path, ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
                                                  kernel_dir, ramdisk_dir,
                                                  ignore_suffix='el5xen')
          return (kernel_path, ramdisk_path)
