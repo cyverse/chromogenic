@@ -78,12 +78,9 @@ class VirtMigrationManager():
             finally:
                 remove_chroot_env(mounted_path)
 
-            #Rebuild ramdisk in case changes were made
-            rebuild_ramdisk(mounted_path)
-            #Retrieve the kernel/ramdisk pair and return
             (kernel_path,
-             ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
-                                                           kernel_dir, ramdisk_dir)
+             ramdisk_path) = cls.get_kernel_ramdisk(mount_point,
+                                                    kernel_dir, ramdisk_dir)
     
             #Use the image, kernel, and ramdisk paths
             #to initialize any driver that implements 'upload_full_image'
@@ -110,6 +107,10 @@ class VirtMigrationManager():
     def debian_mount(cls, image_path, mounted_path):
         logger.warn("This method is not implemented by default")
         return
+    @classmethod
+    def get_kernel_ramdisk(cls, mount_point, kernel_dir, ramdisk_dir):
+        logger.warn("This method is not implemented by default")
+        return
 
 
 class Xen2KVM(VirtMigrationManager):
@@ -117,6 +118,16 @@ class Xen2KVM(VirtMigrationManager):
     Use this class to convert a XEN image to KVM
     """
 
+    @classmethod
+    def get_kernel_ramdisk(cls, mount_point, kernel_dir, ramdisk_dir):
+        #Rebuild ramdisk in case changes were made
+        rebuild_ramdisk(mounted_path, ignore_suffix='el5xen')
+        #Retrieve the kernel/ramdisk pair and return
+        (kernel_path,
+         ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
+                                                 kernel_dir, ramdisk_dir,
+                                                 ignore_suffix='el5xen')
+         return (kernel_path, ramdisk_path)
     @classmethod
     def debian_chroot(cls, image_path, mounted_path):
         #Here is an example of how to run a command in chroot:
@@ -233,5 +244,14 @@ class KVM2Xen(VirtMigrationManager):
     """
     Use this class to convert a KVM image to Xen
     """
-    pass
+    @classmethod
+    def get_kernel_ramdisk(cls, mount_point, kernel_dir, ramdisk_dir):
+        #Rebuild ramdisk in case changes were made
+        rebuild_ramdisk(mounted_path, ignore_prefix='el5')
+        #Retrieve the kernel/ramdisk pair and return
+        (kernel_path,
+         ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
+                                                 kernel_dir, ramdisk_dir,
+                                                 ignore_prefix='el5')
+         return (kernel_path, ramdisk_path)
 

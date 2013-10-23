@@ -142,46 +142,51 @@ def _mkinitrd_command(latest_rmdisk, rmdisk_version, distro='centos', preload=[]
     mkinitrd_str += " -f /boot/%s %s" % (latest_rmdisk, rmdisk_version)
     return mkinitrd_str
 
-def retrieve_kernel_ramdisk(mount_point, kernel_dir, ramdisk_dir):
-    distro = check_distro(mount_point)
+def retrieve_kernel_ramdisk(mounted_path, kernel_dir, ramdisk_dir,
+        ignore_suffix='el5xen'):
+    distro = check_distro(mounted_path)
     #Determine the latest (KVM) ramdisk to use
-    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point, distro)
-    #TODO: copy name changes based on distro
+    latest_rmdisk, rmdisk_version = get_latest_ramdisk(
+            mounted_path, distro, ignore_suffix=ignore_suffix)
     #Copy new kernel & ramdisk to the folder
-    local_ramdisk_path = _copy_ramdisk(mount_point, rmdisk_version,
+    local_ramdisk_path = _copy_ramdisk(mounted_path, rmdisk_version,
             ramdisk_dir, distro)
-    local_kernel_path = _copy_kernel(mount_point, rmdisk_version, kernel_dir,
-            distro)
-
+    local_kernel_path = _copy_kernel(mounted_path, rmdisk_version, kernel_dir)
 
     return (local_kernel_path, local_ramdisk_path)
 
-def _copy_kernel(mount_point, rmdisk_version, kernel_dir, distro):
+def _copy_kernel(mounted_path, rmdisk_version, kernel_dir):
+    kernel_filename = "vmlinuz-%s" % rmdisk_version
     local_kernel_path = os.path.join(kernel_dir,
-                                     "vmlinuz-%s" % rmdisk_version)
-    mount_kernel_path = os.path.join(mount_point,
-                                     "boot/vmlinuz-%s" % rmdisk_version)
+                                     kernel_filename)
+    mount_kernel_path = os.path.join(mounted_path, "boot", kernel_filename)
     run_command(["/bin/cp", mount_kernel_path, local_kernel_path])
     return local_kernel_path
 
-def _copy_ramdisk(mount_point, rmdisk_version, ramdisk_dir, distro):
-    local_ramdisk_path = os.path.join(ramdisk_dir,
-                                      "initrd.img-%s" % rmdisk_version)
-    mount_ramdisk_path = os.path.join(mount_point,
-                                      "boot/initrd.img-%s"
-                                      % rmdisk_version)
+def _copy_ramdisk(mounted_path, rmdisk_version, ramdisk_dir, distro):
+    if distro == 'ubuntu':
+        ramdisk_filename = "initrd.img-%s" % rmdisk_version
+    elif distro == 'centos':
+        ramdisk_filename = "initrd-%s.img" % rmdisk_version
+    else:
+        raise Exception ("Cannot identify distro - %s" % distro)
+
+    local_ramdisk_path = os.path.join(ramdisk_dir, ramdisk_filename)
+    mount_ramdisk_path = os.path.join(mounted_path,"boot", ramdisk_filename)
     run_command(["/bin/cp", mount_ramdisk_path, local_ramdisk_path])
     return local_ramdisk_path
 
-def rebuild_ramdisk(mounted_path, preload=[], include=[]):
+def rebuild_ramdisk(mounted_path, preload=[], include=[],
+                    ignore_suffix='el5xen'):
     """
     This function will get more complicated in the future... We will need to
     support opts in mkinitrd, etc.
     """
 
     #Run this command after installing the latest (non-xen) kernel
-    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mounted_path)
     distro = check_distro(mounted_path)
+    latest_rmdisk, rmdisk_version = get_latest_ramdisk(
+            mounted_path, distro, ignore_suffix=ignore_suffix)
     mkinitrd_str = _mkinitrd_command(latest_rmdisk, rmdisk_version,
                                      distro=distro, preload=preload,
                                      include=include)
@@ -194,19 +199,19 @@ def rebuild_ramdisk(mounted_path, preload=[], include=[]):
         remove_chroot_env(mounted_path)
 
 
-def get_latest_ramdisk(mounted_path, distro):
-    #TODO: This will NOT work when migrating from KVM --> Xen!
-    #Fix Eventually!
+def get_latest_ramdisk(mounted_path, distro, ignore_suffix='el5xen'):
     boot_dir = os.path.join(mounted_path,'boot/')
     output, _ = run_command(["/bin/bash", "-c", "ls -Fah %s" % boot_dir])
     #Determine the latest (KVM) ramdisk to use
     latest_rmdisk = ''
     rmdisk_version = ''
     for line in output.split('\n'):
-        if 'initrd' in line and 'xen' not in line:
+        if 'initrd' in line and not line.endswith(ignore_suffix):
             latest_rmdisk = line
-            #TODO: Distro determines how this line should be parsed (rmdisk_version)
-            rmdisk_version = line.replace('initrd.img-','')
+            if distro == 'ubuntu':
+                rmdisk_version = line.replace('initrd.img-','')
+            elif distro == 'centos':
+                rmdisk_version = line.replace('initrd-','').replace('.img','')
     if not latest_rmdisk or not rmdisk_version:
         raise Exception("Could not determine the latest ramdisk. Is the "
                         "ramdisk located in %s?" % boot_dir)
