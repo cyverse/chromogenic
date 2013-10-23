@@ -206,11 +206,12 @@ def get_latest_ramdisk(mounted_path, distro, ignore_suffix='el5xen'):
     latest_rmdisk = ''
     rmdisk_version = ''
     for line in output.split('\n'):
-        if 'initrd' in line and not line.endswith(ignore_suffix):
-            latest_rmdisk = line
-            if distro == 'ubuntu':
+        if 'initrd' in line:
+            if distro == 'ubuntu' and not line.endswith(ignore_suffix):
+                latest_rmdisk = line
                 rmdisk_version = line.replace('initrd.img-','')
-            elif distro == 'centos':
+            elif distro == 'centos' and not line.endswith("%s.img" % ignore_suffix):
+                latest_rmdisk = line
                 rmdisk_version = line.replace('initrd-','').replace('.img','')
     if not latest_rmdisk or not rmdisk_version:
         raise Exception("Could not determine the latest ramdisk. Is the "

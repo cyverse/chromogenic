@@ -125,7 +125,7 @@ class Xen2KVM(VirtMigrationManager):
         (kernel_path, ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
                                                  kernel_dir, ramdisk_dir,
                                                  ignore_suffix='el5xen')
-         return (kernel_path, ramdisk_path)
+        return (kernel_path, ramdisk_path)
     @classmethod
     def debian_chroot(cls, image_path, mounted_path):
         #Here is an example of how to run a command in chroot:
@@ -251,5 +251,5 @@ class KVM2Xen(VirtMigrationManager):
          ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
                                                  kernel_dir, ramdisk_dir,
                                                  ignore_prefix='el5')
-         return (kernel_path, ramdisk_path)
+        return (kernel_path, ramdisk_path)
 
