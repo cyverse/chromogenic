@@ -277,9 +277,9 @@ class ImageManager(BaseDriver):
 
         image = self.get_image(image_id)
         if image.container_format == 'ami':
-            ext = '.img'
+            ext = 'img'
         elif image.container_foramt == 'qcow':
-            ext = '.qcow2'
+            ext = 'qcow2'
         # Create our own sub-system inside the chosen directory
         # <dir>/<image_id>
         # This helps us keep track of ... everything

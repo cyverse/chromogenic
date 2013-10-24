@@ -210,7 +210,7 @@ class ImageManager(BaseDriver):
         #  (All files will be temporarilly stored here, then deleted)
         download_dir= kwargs.get('download_dir','/tmp')
         image = self.get_image(image_id)
-        ext = '.img'
+        ext = 'img'
         # Create our own sub-system inside the chosen directory
         # <dir>/<username>/<instance>
         # This helps us keep track of ... everything
@@ -247,6 +247,7 @@ class ImageManager(BaseDriver):
 
         #Get image location and unbundle the files based on the manifest and
         #parts
+        logger.debug("Attempt to download to file:%s" % download_location)
         image_path = machine.location
         image_location = self._download_euca_image(image_path, download_dir,
                                                 part_dir, self.pk_path,
@@ -856,6 +857,7 @@ class ImageManager(BaseDriver):
             image_location =  os.path.join(
                 download_dir,
                 manifest_loc.replace('.manifest.xml',''))
+        logger.debug("Test if %s exists" % image_location)
         if os.path.isfile(image_location):
             # DONT re-download the file if it exists!
             logger.debug("Found image file: %s -- Skipping download"
