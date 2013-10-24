@@ -5,46 +5,72 @@ from threepio import logger
 from chromogenic.common import wildcard_remove
 from chromogenic.drivers.migration import KVM2Xen, Xen2KVM
 
-def migrate_instance(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
-    orig = origCls(**orig_creds)
-    migrate = migrateCls(**migrate_creds)
-    manager = orig
+def migrate_instance(src_managerCls, src_manager_creds, migrationCls, migration_creds, **imaging_args):
+    """
+    Use the source manager to download a local image file
+    Then start the migration by passing migration class
+    """
+    src_manager = src_managerCls(**src_manager_creds)
+    migrate = migrationCls(**migration_creds)
+    src_manager = src_manager
 
-    #1. Download from orig
-    download_kwargs = manager.download_instance_args(**imaging_args)
-
-    download_location = manager.download_instance(**download_kwargs)
+    #1. Download from src_manager
+    download_kwargs = src_manager.download_instance_args(**imaging_args)
+    download_location = src_manager.download_instance(**download_kwargs)
     imaging_args['download_location'] = download_location
-    start_migration(origCls, orig_creds, migrateCls, migrate_creds,
-                    **imaging_args)
-
-def migrate_image(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
-    orig = origCls(**orig_creds)
-    migrate = migrateCls(**migrate_creds)
-    manager = orig
-
-    #1. Download from orig
-    download_kwargs = manager.download_image_args(**imaging_args)
-    download_location = manager.download_image(**download_kwargs)
-    imaging_args['download_location'] = download_location
-    start_migration(origCls, orig_creds, migrateCls, migrate_creds,
-                    **imaging_args)
-
-def start_migration(origCls, orig_creds, migrateCls, migrate_creds,
-                    download_location, **imaging_args):
+    #Clean it
     download_dir = os.path.dirname(download_location)
-    mount_point = os.path.join(download_dir, 'mount/')
+    mount_point = os.path.join(download_dir, 'mount_point/')
     if not os.path.exists(mount_point):
         os.makedirs(mount_point)
-    #2. clean from orig
     if imaging_args.get('clean_image',True):
-        manager.mount_and_clean(
+        src_manager.mount_and_clean(
+                download_location,
+                mount_point,
+                **imaging_args)
+    #2. Start the migration
+    start_migration(migrationCls, migration_creds, **imaging_args)
+
+def migrate_image(src_managerCls, src_manager_creds, migrationCls, migration_creds, **imaging_args):
+    """
+    Use the source manager to download a local image file
+    Then start the migration by passing migration class
+    """
+    src_manager = src_managerCls(**src_manager_creds)
+
+    #1. Download & clean from src_manager
+    download_kwargs = src_manager.download_image_args(**imaging_args)
+    download_location = src_manager.download_image(**download_kwargs)
+    #Clean it
+    download_dir = os.path.dirname(download_location)
+    mount_point = os.path.join(download_dir, 'mount_point/')
+    if not os.path.exists(mount_point):
+        os.makedirs(mount_point)
+    imaging_args['download_location'] = download_location
+    if imaging_args.get('clean_image',True):
+        src_manager.mount_and_clean(
                 download_location,
                 mount_point,
                 **imaging_args)
 
-        #2. clean from new
-        migrate.mount_and_clean(
+    #2. Start the migration
+    start_migration(migrationCls, migration_creds, **imaging_args)
+
+def start_migration(migrationCls, migration_creds, download_location, **imaging_args):
+    """
+    Whether your migration starts by image or by instance, they all end the
+    same:
+    * Clean-up the local image file
+    * Upload the local image file
+    """
+    dest_manager = migrationCls(**migration_creds)
+    download_dir = os.path.dirname(download_location)
+    mount_point = os.path.join(download_dir, 'mount_point/')
+    if not os.path.exists(mount_point):
+        os.makedirs(mount_point)
+    #2. clean using dest manager
+    if imaging_args.get('clean_image',True):
+        dest_manager.mount_and_clean(
                 download_location,
                 mount_point,
                 **imaging_args)
@@ -60,8 +86,8 @@ def start_migration(origCls, orig_creds, migrateCls, migrate_creds,
     imaging_args['kernel_path'] = kernel_path
     imaging_args['ramdisk_path'] = ramdisk_path
     #4. Upload on new
-    upload_kwargs = migrate.parse_upload_args(**imaging_args)
-    new_image_id = migrate.upload_image(**upload_kwargs)
+    upload_kwargs = dest_manager.parse_upload_args(**imaging_args)
+    new_image_id = dest_manager.upload_image(**upload_kwargs)
 
     #5. Cleanup, return
     if imaging_args.get('keep_image',False):

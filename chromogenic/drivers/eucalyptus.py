@@ -866,7 +866,7 @@ class ImageManager(BaseDriver):
         self._download_manifest(bucket, part_dir, manifest_loc)
         logger.debug("Manifest downloaded")
         part_list = self._download_parts(bucket, part_dir, manifest_loc)
-        logger.debug("Image parts downloaded")
+        logger.debug("Image parts downloaded to %s" % part_dir)
         image_location = self._unbundle_manifest(part_dir, download_dir,
                                               os.path.join(part_dir,
                                                            manifest_loc),

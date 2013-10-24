@@ -51,8 +51,8 @@ def machine_export_task(machine_export):
     logger.debug("machine_export_task task finished at %s." % datetime.now())
     return (md5_sum, url)
 
-@task(name='machine_migration_task', ignore_result=False)
-def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
+@task(name='migrate_instance_task', ignore_result=False)
+def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
     new_image_id = migrate_instance(origCls, orig_creds,
                      migrateCls, migrate_creds,
                      **imaging_args)
