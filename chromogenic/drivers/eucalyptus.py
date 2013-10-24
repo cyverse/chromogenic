@@ -869,11 +869,13 @@ class ImageManager(BaseDriver):
         logger.debug("Manifest downloaded")
         part_list = self._download_parts(bucket, part_dir, manifest_loc)
         logger.debug("Image parts downloaded to %s" % part_dir)
-        image_location = self._unbundle_manifest(part_dir, download_dir,
-                                              os.path.join(part_dir,
-                                                           manifest_loc),
-                                              pk_path, part_list)
+        actual_location = self._unbundle_manifest(part_dir, download_dir,
+                                                  os.path.join(part_dir,
+                                                               manifest_loc),
+                                                  pk_path, part_list)
         logger.debug("Complete @ %s.." % datetime.now())
+        if actual_location != image_location:
+            os.rename(actual_location, image_location)
         return image_location
 
     def _download_manifest(self, bucket, download_dir, manifest_name):
