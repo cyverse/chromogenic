@@ -128,7 +128,7 @@ class ImageManager(BaseDriver):
             download_dir = os.path.dirname(download_location)
         return download_dir, download_location
 
-    def parse_download_args(self, instance_id, **kwargs):
+    def download_instance_args(self, instance_id, **kwargs):
         #Step 0: Is the instance alive?
         server = self.get_server(instance_id)
         if not server:
@@ -147,9 +147,9 @@ class ImageManager(BaseDriver):
     def download_instance(self, instance_id, download_location='/tmp', **kwargs):
         snapshot_id=kwargs.get('snapshot_id',None)
         if snapshot_id:
-            snapshot = self.download_snapshot(snapshot_id, download_location)
+            snapshot_id, download_location = self.download_snapshot(snapshot_id, download_location)
         else:
-            snapshot = self._download_instance(instance_id, download_location)
+            snapshot_id, download_location = self._download_instance(instance_id, download_location)
         fsck_qcow(download_location) # Maintain image consistency..
         return snapshot
 
@@ -164,7 +164,7 @@ class ImageManager(BaseDriver):
                 download_location = download_dir/username/image_name.qcow2
         """
         #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
-        download_kwargs = self.parse_download_args(instance_id, **kwargs)
+        download_kwargs = self.download_instance_args(instance_id, **kwargs)
         snapshot = self.download_instance(instance_id, **download_kwargs)
 
         #Step 2: Clean the local copy
@@ -247,7 +247,8 @@ class ImageManager(BaseDriver):
             download_location - The exact path where image will be downloaded
         """
         #Step 1: Find snapshot by id
-        return self.download_image(snapshot_id, download_location)
+        return (snapshot_id,
+                self.download_image(snapshot_id, download_location))
 
 
     def _download_instance(self, instance_id, download_location, *args, **kwargs):
@@ -269,7 +270,31 @@ class ImageManager(BaseDriver):
         ss_name = 'ChromoSnapShot_%s_%s' % (instance_id, now_str)
         meta_data = {}
         snapshot = self.create_snapshot(instance_id, ss_name, delay=True, **meta_data)
-        return self.download_image(snapshot.id, download_location)
+        return (snapshot.id,
+                self.download_image(snapshot.id, download_location))
+
+    def download_image_args(self, image_id, **kwargs):
+        download_dir= kwargs.get('download_dir','/tmp')
+
+        image = self.get_image(image_id)
+        if image.container_format == 'ami':
+            ext = '.img'
+        elif image.container_foramt == 'qcow':
+            ext = '.qcow2'
+        # Create our own sub-system inside the chosen directory
+        # <dir>/<image_id>
+        # This helps us keep track of ... everything
+        download_location = os.path.join(
+                download_dir,
+                image_id,
+                "%s.%s" % (image.name, ext))
+        download_args = {
+                'snapshot_id': kwargs.get('snapshot_id'),
+                'instance_id': instance_id, 
+                'download_dir' : download_dir,
+                'download_location' : download_location,
+        }
+        return download_args
 
     def download_image(self, image_id, download_location):
         image = self.glance.images.get(image_id)
@@ -279,7 +304,7 @@ class ImageManager(BaseDriver):
             for chunk in image.data():
                 f.write(chunk)
         logger.debug("Image downloaded to %s" % download_location)
-        return image
+        return download_location
 
     def upload_image(self, image_name, image_path, **upload_args):
         if upload_args.get('kernel_path') and upload_args.get('ramdisk_path'):

@@ -103,7 +103,7 @@ class ImageManager(BaseDriver):
 
 
         #Step 1. Download
-        download_args = self.parse_download_args(instance_id, image_name, **kwargs)
+        download_args = self.download_instance_args(instance_id, image_name, **kwargs)
         download_location = self.download_instance(**download_args)
         download_dir = download_args['download_dir']
         mount_point = build_imaging_dirs(download_dir)
@@ -125,7 +125,7 @@ class ImageManager(BaseDriver):
             wildcard_remove(download_dir)
         return new_image_id
 
-    def parse_download_args(self, instance_id, image_name, **kwargs):
+    def download_instance_args(self, instance_id, image_name, **kwargs):
         reservation, instance = self.get_reservation(instance_id)
         #Start defining the **kwargs, setting defaults when necessary
         download_args = {}
@@ -205,7 +205,30 @@ class ImageManager(BaseDriver):
         #Returns download_location
         return self.scp_remote_file(remote_img_path, download_location, **node_scp_info)
 
-    def download_image(self, download_dir, image_id):
+    def download_image_args(self, image_id, **kwargs):
+        #  download_dir - Override the default download dir
+        #  (All files will be temporarilly stored here, then deleted)
+        download_dir= kwargs.get('download_dir','/tmp')
+        image = self.get_image(image_id)
+        ext = '.img'
+        # Create our own sub-system inside the chosen directory
+        # <dir>/<username>/<instance>
+        # This helps us keep track of ... everything
+        download_location = os.path.join(
+                download_dir,
+                image_id,
+                "%s.%s" % (image.name, ext))
+        download_dir = os.path.dirname(download_location)
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
+
+        download_args = {
+                'image_id' : image_id,
+                'download_location' : download_location
+            }
+        return download_args
+
+    def download_image(self, image_id, download_location):
         """
         Download an existing image to local download directory
         Required Args:
@@ -219,15 +242,16 @@ class ImageManager(BaseDriver):
             raise Exception("Machine Not Found.")
 
         #We need more directories to store things..
-        download_dir, part_dir = self._download_image_dirs(download_dir, image_id)
+        download_dir = os.path.dirname(download_location)
+        part_dir = self._mkdir_image_parts(download_dir, image_id)
 
         #Get image location and unbundle the files based on the manifest and
         #parts
         image_path = machine.location
-        whole_image = self._download_euca_image(image_path, download_dir,
-                                                part_dir, self.pk_path)[0]
-        #Return download_path and image_path
-        return download_dir, os.path.join(download_dir, whole_image)
+        image_location = self._download_euca_image(image_path, download_dir,
+                                                part_dir, self.pk_path,
+                                                download_location)[0]
+        return image_location
 
     def parse_upload_args(self, instance_id, image_name, image_path, **kwargs):
         reservation, instance = self.get_reservation(instance_id)
@@ -460,14 +484,13 @@ class ImageManager(BaseDriver):
         return image_conn
 
     # Download privates
-    def _download_image_dirs(self, download_dir, image_id):
-        download_dir = os.path.join(download_dir, image_id)
+    def _mkdir_image_parts(self, download_dir, image_id):
         part_dir = os.path.join(download_dir, 'parts')
 
         for dir_path in [part_dir]:
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path)
-        return download_dir, part_dir
+        return part_dir
 
     # KVM/Openstack privates
     def _export_dirs(self, download_dir):
@@ -825,30 +848,31 @@ class ImageManager(BaseDriver):
     These functions are called indirectly during the 'download_image' process.
     """
     def _download_euca_image(self, image_path, download_dir, part_dir,
-            pk_path):
+            pk_path, image_location=None):
         logger.debug("Complete. Begin Download of Image  @ %s.."
                      % datetime.now())
         (bucket_name, manifest_loc) = image_path.split('/')
-        whole_image =  os.path.join(
-            download_dir,
-            manifest_loc.replace('.manifest.xml',''))
-        if os.path.isfile(whole_image):
+        if not image_location:
+            image_location =  os.path.join(
+                download_dir,
+                manifest_loc.replace('.manifest.xml',''))
+        if os.path.isfile(image_location):
             # DONT re-download the file if it exists!
             logger.debug("Found image file: %s -- Skipping download"
-                         % whole_image)
-            return whole_image
+                         % image_location)
+            return image_location
         bucket = self.get_bucket(bucket_name)
         logger.debug("Bucket found : %s" % bucket)
         self._download_manifest(bucket, part_dir, manifest_loc)
         logger.debug("Manifest downloaded")
         part_list = self._download_parts(bucket, part_dir, manifest_loc)
         logger.debug("Image parts downloaded")
-        whole_image = self._unbundle_manifest(part_dir, download_dir,
+        image_location = self._unbundle_manifest(part_dir, download_dir,
                                               os.path.join(part_dir,
                                                            manifest_loc),
                                               pk_path, part_list)
         logger.debug("Complete @ %s.." % datetime.now())
-        return whole_image
+        return image_location
 
     def _download_manifest(self, bucket, download_dir, manifest_name):
         k = Key(bucket)
@@ -933,7 +957,8 @@ class ImageManager(BaseDriver):
 
     def list_images(self):
         euca_conn = self.euca.make_connection()
-        return euca_conn.get_all_images()
+        all_images = euca_conn.get_all_images()
+        return [self._to_img(img) for img in all_images]
 
     def find_image(self, name):
         return [m for m in self.list_images()
@@ -945,6 +970,19 @@ class ImageManager(BaseDriver):
         #Believe it or not, this image may NOT be the one we requested.
         if image.id != image_id:
             return None
+        return self._to_img(image)
+
+    def _to_img(self, image):
+        if not image.name:
+            try:
+                bucket, manifest = image.location.split('/')
+                if len(manifest.split('_')) >= 5:
+                    image.name = '_'.join(manifest.split('_')[2:-2])
+                else:
+                    image.name = manifest.replace('.img.manifest.xml')
+            except:
+                image.name = image.location
+                #Attempt to do custom parsing, but its OK if it doesnt work
         return image
 
     #Parsing classes belong to euca-download-bundle in euca2ools 1.3.1

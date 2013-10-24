@@ -9,6 +9,7 @@ from threepio import logger
 from core.email import send_image_request_email
 
 from chromogenic.common import wildcard_remove
+from chromogenic.migrate import migrate_instance
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
 from chromogenic.drivers.openstack import ImageManager as OSImageManager
 from chromogenic.drivers.migration import KVM2Xen, Xen2KVM
@@ -60,53 +61,9 @@ def machine_export_task(machine_export):
 
 @task(name='machine_migration_task', ignore_result=False)
 def machine_migration_task(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
-    #orig_creds = origCls._build_image_creds(orig_creds)
-    orig = origCls(**orig_creds)
-    #migrate_creds = migrateCls._build_image_creds(migrate_creds)
-    migrate = migrateCls(**migrate_creds)
-    #TODO: Select the correct migration class based on origCls && migrateCls
-    #TODO: Pass orig_creds and migrate_creds to the correct migration class
-    #TODO: Decide how to initialize manager for migrating..
-    manager = orig
-
-    #1. Download from orig
-    download_kwargs = manager.parse_download_args(**imaging_args)
-    download_location = manager.download_instance(**download_kwargs)
-
-    download_dir = os.path.dirname(download_location)
-    mount_point = os.path.join(download_dir, 'mount/')
-    if not os.path.exists(mount_point):
-        os.makedirs(mount_point)
-    #2. clean from orig
-    if imaging_args.get('clean_image',True):
-        manager.mount_and_clean(
-                download_location,
-                mount_point,
-                **imaging_args)
-
-        #2. clean from new
-        migrate.mount_and_clean(
-                download_location,
-                mount_point,
-                **imaging_args)
-
-    #3. Convert from KVM-->Xen or Xen-->KVM (If necessary)
-    if imaging_args.get('kvm_to_xen', False):
-        (image_path, kernel_path, ramdisk_path) =\
-            KVM2Xen.convert(download_location, download_dir)
-    elif imaging_args.get('xen_to_kvm', False):
-        (image_path, kernel_path, ramdisk_path) =\
-            Xen2KVM.convert(download_location, download_dir)
-    imaging_args['image_path'] = image_path
-    imaging_args['kernel_path'] = kernel_path
-    imaging_args['ramdisk_path'] = ramdisk_path
-    #4. Upload on new
-    upload_kwargs = migrate.parse_upload_args(**imaging_args)
-    new_image_id = migrate.upload_image(**upload_kwargs)
-
-    #5. Cleanup, return
-    if imaging_args.get('keep_image',False):
-        wildcard_remove(download_dir)
+    new_image_id = migrate_instance(origCls, orig_creds,
+                     migrateCls, migrate_creds,
+                     **imaging_args)
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)
