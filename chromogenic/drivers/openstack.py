@@ -183,7 +183,6 @@ class ImageManager(BaseDriver):
 
         new_image = self.upload_local_image(**upload_args)
 
-        #Step 4: Cleanup after yourself
         if not kwargs.get('keep_image',False):
             snapshot.delete()
             wildcard_remove(download_dir)
@@ -220,6 +219,8 @@ class ImageManager(BaseDriver):
             'kernel_path':kwargs['kernel_path'], 
             'ramdisk_path':kwargs['ramdisk_path'], 
             'is_public':kwargs.get('public',True)
+            'private_user_list':kwargs.get('private_user_list', []), 
+            'keep_image':kwargs['keep_image'], 
         }
         return upload_args
 
@@ -232,6 +233,7 @@ class ImageManager(BaseDriver):
              'disk_format':'ami',
              'is_public':kwargs.get('public', True), 
              'private_user_list':kwargs.get('private_user_list', []), 
+             'keep_image':kwargs['keep_image'], 
              'properties':{
                  'kernel_id' :  kwargs['kernel_id'],
                  'ramdisk_id' : kwargs['ramdisk_id']
@@ -328,12 +330,15 @@ class ImageManager(BaseDriver):
                                              properties=properties,
                                              data=open(image_path))
         logger.debug("New image created: %s - %s" % (image_name, new_image.id))
-        #TODO: For username in private_user_list
-        #    share_image(new_meta,username)
+        for tenant_name in private_user_list:
+            share_image(new_image,tenant_name)
+            logger.debug("%s has permission to launch %s"
+                         % (tenant_name, new_image))
         return new_image.id
 
     def upload_full_image(self, image_name, image_path,
-                          kernel_path, ramdisk_path, is_public=True):
+                          kernel_path, ramdisk_path, is_public=True,
+                          private_user_list=[]):
         """
         Upload a full image to glance..
             name - Name of image when uploaded to OpenStack
@@ -362,7 +367,10 @@ class ImageManager(BaseDriver):
                                              disk_format='ami', 
                                              is_public=is_public,
                                              properties=opts)
-        #TODO: Cleanup code now that its uploaded.. Or do it elsewhere.
+        for tenant_name in private_user_list:
+            share_image(new_image,tenant_name)
+            logger.debug("%s has permission to launch %s"
+                         % (tenant_name, new_image))
         return new_image
 
     def delete_images(self, image_id=None, image_name=None):
@@ -511,17 +519,18 @@ class ImageManager(BaseDriver):
             image = self.find_image(image_name)
             return self.glance.image_members.list(image=image)
 
-    def share_image(self, image, tenant_id, can_share=False):
+    def share_image(self, image, tenant_name, can_share=False):
         """
 
         @param can_share
         @type Str
         If True, allow that tenant to share image with others
         """
+        tenant = self.find_tenant(tenant_name)
         return self.glance.image_members.create(
-                    image, tenant_id, can_share=can_share)
+                    image, tenant.id, can_share=can_share)
 
-    def unshare_image(self, image, tenant_id):
+    def unshare_image(self, image, tenant_name):
         tenant = find(self.keystone.tenants, name=tenant_name)
         return self.glance.image_members.delete(image.id, tenant.id)
 
