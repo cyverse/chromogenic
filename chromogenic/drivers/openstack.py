@@ -218,9 +218,7 @@ class ImageManager(BaseDriver):
             'image_path':image_path,
             'kernel_path':kwargs['kernel_path'], 
             'ramdisk_path':kwargs['ramdisk_path'], 
-            'is_public':kwargs.get('public',True)
-            'private_user_list':kwargs.get('private_user_list', []), 
-            'keep_image':kwargs['keep_image'], 
+            'is_public':kwargs.get('public',True),
         }
         return upload_args
 
@@ -233,7 +231,6 @@ class ImageManager(BaseDriver):
              'disk_format':'ami',
              'is_public':kwargs.get('public', True), 
              'private_user_list':kwargs.get('private_user_list', []), 
-             'keep_image':kwargs['keep_image'], 
              'properties':{
                  'kernel_id' :  kwargs['kernel_id'],
                  'ramdisk_id' : kwargs['ramdisk_id']
