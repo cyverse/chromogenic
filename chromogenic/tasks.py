@@ -1,18 +1,10 @@
-import os, re
-
 from datetime import datetime
 
 from celery.decorators import task
 
 from threepio import logger
 
-from core.email import send_image_request_email
-
-from chromogenic.common import wildcard_remove
 from chromogenic.migrate import migrate_instance
-from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
-from chromogenic.drivers.openstack import ImageManager as OSImageManager
-from chromogenic.drivers.migration import KVM2Xen, Xen2KVM
 from chromogenic.drivers.virtualbox import ExportManager
 
 from django.conf import settings
