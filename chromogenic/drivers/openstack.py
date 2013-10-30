@@ -143,6 +143,7 @@ class ImageManager(BaseDriver):
                 'download_dir' : download_dir,
                 'download_location' : download_location,
         }
+        return download_args
 
     def download_instance(self, instance_id, download_location='/tmp', **kwargs):
         snapshot_id=kwargs.get('snapshot_id',None)
