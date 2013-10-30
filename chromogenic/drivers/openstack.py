@@ -111,7 +111,7 @@ class ImageManager(BaseDriver):
             self.nova,\
             self.glance) = self._new_connection(*args, **creds)
 
-    def _parse_download_location(self, server, **kwargs):
+    def _parse_download_location(self, server, image_name, **kwargs):
         download_location = kwargs.get('download_location')
         download_dir = kwargs.get('download_dir')
         if not download_dir and not download_location:
@@ -128,7 +128,7 @@ class ImageManager(BaseDriver):
             download_dir = os.path.dirname(download_location)
         return download_dir, download_location
 
-    def download_instance_args(self, instance_id, **kwargs):
+    def download_instance_args(self, instance_id, image_name='', **kwargs):
         #Step 0: Is the instance alive?
         server = self.get_server(instance_id)
         if not server:
@@ -136,7 +136,7 @@ class ImageManager(BaseDriver):
 
 
         #Set download location
-        download_dir, download_location = self._parse_download_location(server, **kwargs)
+        download_dir, download_location = self._parse_download_location(server, image_name, **kwargs)
         download_args = {
                 'snapshot_id': kwargs.get('snapshot_id'),
                 'instance_id': instance_id, 
@@ -164,7 +164,7 @@ class ImageManager(BaseDriver):
                 download_location = download_dir/username/image_name.qcow2
         """
         #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
-        download_kwargs = self.download_instance_args(instance_id, **kwargs)
+        download_kwargs = self.download_instance_args(instance_id, image_name, **kwargs)
         snapshot = self.download_instance(instance_id, **download_kwargs)
 
         #Step 2: Clean the local copy
