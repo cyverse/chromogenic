@@ -493,6 +493,14 @@ class ImageManager(BaseDriver):
                 os.makedirs(dir_path)
         return part_dir
 
+    def build_imaging_dirs(self, download_dir):
+        mount_dir = os.path.join(download_dir, 'mount_point')
+
+        for dir_path in [mount_dir]:
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+        return mount_dir
+
     # KVM/Openstack privates
     def _export_dirs(self, download_dir):
         kernel_dir = os.path.join(download_dir, "kernel")
