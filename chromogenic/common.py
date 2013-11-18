@@ -38,7 +38,6 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     logger.debug("%s STDERR: %s" % (cmd_str, err))
     return (out,err)
 
-
 def overwrite_file(filepath, dry_run=False):
     if not os.path.exists(filepath):
         logger.warn("Cannot copy /dev/null to non-existent file: %s" %
@@ -705,4 +704,15 @@ def build_imaging_dirs(download_dir, full_image=False):
     if full_image:
         return (kernel_dir, ramdisk_dir, mount_point)
     return mount_point
+
+def qemu_convert(image_location, dest_location, source_ext=None, output_ext=None):
+    if not source_ext:
+        _, source_ext = os.path.splitext(image_location)
+    if not output_ext:
+        _, output_ext = os.path.splitext(dest_location)
+    (out, err) = run_command(['qemu-img', 'convert',
+                            "-f", source_ext,
+                            '-O', output_ext,
+                            image_location, dest_location])
+    return out, err
 

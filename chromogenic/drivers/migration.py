@@ -17,7 +17,7 @@ import os
 from threepio import logger
 
 from chromogenic.common import create_file, mount_image, run_command,\
-                               check_distro, apply_label
+                               check_distro, apply_label, build_imaging_dirs
 
 from chromogenic.common import prepare_chroot_env,\
                                remove_chroot_env
