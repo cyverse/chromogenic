@@ -55,9 +55,10 @@ class BaseDriver():
             os.makedirs(mount_point)
 
         #Mount the directory
-        out, err = mount_image(image_path, mount_point)
-        if err:
-            raise Exception("Encountered errors mounting the image: %s" % err)
+        result, nbd_device = mount_image(image_path, mount_point)
+        if not result:
+            raise Exception("Encountered errors mounting the image: %s"
+                    % image_path)
         #Required cleaning
         remove_user_data(mount_point)
         remove_atmo_data(mount_point)
@@ -70,6 +71,8 @@ class BaseDriver():
         self.file_hook_cleaning(mount_point, **kwargs)
         #Don't forget to unmount!
         run_command(['umount', mount_point])
+        if nbd_device:
+            run_command(['qemu-nbd', '-d', nbd_device])
         return
 
     def file_hook_cleaning(self, mounted_path, **kwargs):

@@ -153,7 +153,7 @@ class ImageManager(BaseDriver):
         else:
             snapshot_id, download_location = self._download_instance(instance_id, download_location)
         fsck_qcow(download_location) # Maintain image consistency..
-        return snapshot_id
+        return snapshot_id, download_location
 
     def create_image(self, instance_id, image_name, *args, **kwargs):
         """
@@ -167,8 +167,9 @@ class ImageManager(BaseDriver):
         """
         #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
         download_kwargs = self.download_instance_args(instance_id, image_name, **kwargs)
-        snapshot_id = self.download_instance(**download_kwargs)
-
+        snapshot_id, download_location = self.download_instance(**download_kwargs)
+        download_dir = os.path.dirname(download_location)
+        snapshot = self.get_image(snapshot_id)
         #Step 2: Clean the local copy
         if kwargs.get('clean_image',True):
             self.mount_and_clean(
@@ -186,7 +187,6 @@ class ImageManager(BaseDriver):
         new_image = self.upload_local_image(**upload_args)
 
         if not kwargs.get('keep_image',False):
-            snapshot = self.get_image(snapshot_id)
             snapshot.delete()
             wildcard_remove(download_dir)
 

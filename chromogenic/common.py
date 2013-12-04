@@ -411,7 +411,8 @@ def _detect_and_mount_image(image_path, mount_point):
     if file_ext == '.qcow' or file_ext == '.qcow2':
         return mount_qcow(image_path, mount_point)
     elif file_ext == '.raw' or file_ext == '.img':
-        return mount_raw(image_path, mount_point)
+        result = mount_raw(image_path, mount_point)
+        return (result, None)
     raise Exception("Encountered an unknown image type -- Extension : %s" %
             file_ext)
 
@@ -511,11 +512,12 @@ def mount_qcow(image_path, mount_point):
         if err:
             raise Exception("Failed to mount QCOW. STDERR: %s" % err)
         #The qcow image has been mounted
-        return out, err
+        return True, nbd_dev
     except Exception:
         run_command(['qemu-nbd', '-d', nbd_dev])
-        logger.exception('Failed to mount QCOW')
-        return '', 'Could not mount QCOW image:%s to device:%s' % (image_path, nbd_dev)
+        logger.exception('Could not mount QCOW image:%s to device:%s'
+                % (image_path, nbd_dev))
+        return False, None
 
 
 def fdisk_image(image_path):
@@ -549,10 +551,10 @@ def mount_raw(image_path, mount_point):
         return mount_raw_with_offsets(image_path, mount_point)
     elif 'already mounted' in err and mount_point in err:
         #Already mounted in this location. Everything is fine.
-        return '', ''
+        return True
 
-    #Return output/error from the mount
-    return out, err
+    #Mount was successful, return True
+    return True
 
 def mount_raw_with_offsets(image_path, mount_point):
     fdisk_stats = fdisk_image(image_path)
