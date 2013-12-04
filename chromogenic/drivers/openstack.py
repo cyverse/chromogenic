@@ -99,6 +99,7 @@ class ImageManager(BaseDriver):
             creds['password'] = secret
         if tenant and not creds.get('tenant_name'):
             creds['tenant_name'] = tenant
+        creds['auth_url'] = creds['auth_url'].replace('/tokens','')
         return creds
 
     def __init__(self, *args, **kwargs):
@@ -152,7 +153,7 @@ class ImageManager(BaseDriver):
         else:
             snapshot_id, download_location = self._download_instance(instance_id, download_location)
         fsck_qcow(download_location) # Maintain image consistency..
-        return snapshot
+        return snapshot_id
 
     def create_image(self, instance_id, image_name, *args, **kwargs):
         """
@@ -166,7 +167,7 @@ class ImageManager(BaseDriver):
         """
         #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
         download_kwargs = self.download_instance_args(instance_id, image_name, **kwargs)
-        snapshot = self.download_instance(**download_kwargs)
+        snapshot_id = self.download_instance(**download_kwargs)
 
         #Step 2: Clean the local copy
         if kwargs.get('clean_image',True):
@@ -185,6 +186,7 @@ class ImageManager(BaseDriver):
         new_image = self.upload_local_image(**upload_args)
 
         if not kwargs.get('keep_image',False):
+            snapshot = self.get_image(snapshot_id)
             snapshot.delete()
             wildcard_remove(download_dir)
 
