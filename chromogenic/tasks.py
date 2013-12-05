@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import ipdb
 from celery.decorators import task
 
 from threepio import logger
@@ -59,7 +59,7 @@ def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imag
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)
-def machine_imaging_task(managerCls, manager_creds, **create_img_args):
+def machine_imaging_task(managerCls, manager_creds, create_img_args):
     manager = managerCls(**manager_creds)
     new_image_id = manager.create_image(**create_img_args)
     return new_image_id
