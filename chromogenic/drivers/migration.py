@@ -120,12 +120,12 @@ class KVM2Xen(MigrationPlan):
     @classmethod
     def get_kernel_ramdisk(cls, mount_point, kernel_dir, ramdisk_dir):
         #Rebuild ramdisk in case changes were made
-        rebuild_ramdisk(mount_point, ignore_prefix='el5')
+        rebuild_ramdisk(mount_point, ignore_suffix='el5')
         #Retrieve the kernel/ramdisk pair and return
         (kernel_path,
          ramdisk_path) = retrieve_kernel_ramdisk(mount_point,
                                                  kernel_dir, ramdisk_dir,
-                                                 ignore_prefix='el5')
+                                                 ignore_suffix='el5')
         return (kernel_path, ramdisk_path)
 
 class Xen2KVM(MigrationPlan):
