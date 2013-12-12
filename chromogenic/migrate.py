@@ -90,6 +90,6 @@ def start_migration(migrationCls, migration_creds, download_location, **imaging_
     new_image_id = dest_manager.upload_image(**upload_kwargs)
 
     #5. Cleanup, return
-    if imaging_args.get('keep_image',False):
+    if not imaging_args.get('keep_image',False):
         wildcard_remove(download_dir)
     return new_image_id
