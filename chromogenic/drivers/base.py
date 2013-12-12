@@ -53,7 +53,8 @@ class BaseDriver():
 
         if not os.path.exists(mount_point):
             os.makedirs(mount_point)
-
+        #FSCK the image, FIRST!
+        fsck_image(image_path)
         #Mount the directory
         result, nbd_device = mount_image(image_path, mount_point)
         if not result:

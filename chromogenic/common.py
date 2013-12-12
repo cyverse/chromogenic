@@ -484,6 +484,21 @@ def prepare_chroot_env(mount_point):
     run_command(['mount', '-o', 'bind', '/dev',  dev_dir])
     run_command(['mount', '--bind', '/etc/resolv.conf', etc_resolv_file])
 
+def fsck_image(image_path):
+    _, source_ext = os.path.splitext(image_path)
+    if 'qcow' in source_ext:
+        return fsck_qcow(image_path)
+    else:
+        return fsck_img(image_path)
+
+def fsck_img(image_path):
+    loop_dev = _get_next_loop()
+    try:
+        run_command(['losetup', loop_dev, image_path])
+        run_command(['fsck', '-y', loop_dev])
+    finally:
+        run_command(['losetup', '-d', loop_dev])
+
 def fsck_qcow(image_path):
     """
     Will attempt to auto-repair a QCOW2 image, in case there were errors during
@@ -492,10 +507,11 @@ def fsck_qcow(image_path):
     if 'qcow' not in image_path:
         return False
     nbd_dev = _get_next_nbd()
-    run_command(['qemu-nbd', '-c', nbd_dev, image_path])
-    run_command(['fsck', '-y', nbd_dev])
-    run_command(['qemu-nbd', '-d', nbd_dev])
-    return True
+    try:
+        run_command(['qemu-nbd', '-c', nbd_dev, image_path])
+        run_command(['fsck', '-y', nbd_dev])
+    finally:
+        run_command(['qemu-nbd', '-d', nbd_dev])
 
 def mount_qcow(image_path, mount_point):
     nbd_dev = _get_next_nbd()
@@ -514,10 +530,12 @@ def mount_qcow(image_path, mount_point):
         #The qcow image has been mounted
         return True, nbd_dev
     except Exception:
-        run_command(['qemu-nbd', '-d', nbd_dev])
         logger.exception('Could not mount QCOW image:%s to device:%s'
                 % (image_path, nbd_dev))
         return False, None
+    finally:
+        #Run regardless of exception
+        run_command(['qemu-nbd', '-d', nbd_dev])
 
 
 def fdisk_image(image_path):
@@ -530,6 +548,21 @@ def _fdisk_get_partition(image_path):
     fdisk_stats = fdisk_image(image_path)
     partition = _select_partition(fdisk_stats['devices'])
     return partition
+
+
+def _get_next_loopback():
+    loop_name = '/dev/loop'
+    loop_count = 0
+    MAX_COUNT = 7
+    while loop_count < MAX_COUNT:
+        loop_dev = '%s%s' % (loop_name, loop_count)  # /dev/loop[0,1,2,...]
+        out, err = run_command(['losetup',loop_dev])
+        if 'no such device' in out.lower():
+            #No such device means the loop is empty, ready for use.
+            return loop_dev
+        loop_count += 1
+    raise Exception("Error: All /dev/loop* devices are in use")
+
 
 def _get_next_nbd():
     nbd_name = '/dev/nbd'
