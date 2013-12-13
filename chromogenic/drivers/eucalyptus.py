@@ -210,14 +210,17 @@ class ImageManager(BaseDriver):
         #  (All files will be temporarilly stored here, then deleted)
         download_dir= kwargs.get('download_dir','/tmp')
         image = self.get_image(image_id)
-        ext = 'img'
+        name = image.name
+        name = name.replace('.manifest.xml','')
+        if not name.endswith('.img'):
+            name = '%s.img' % name
         # Create our own sub-system inside the chosen directory
         # <dir>/<username>/<instance>
         # This helps us keep track of ... everything
         download_location = os.path.join(
                 download_dir,
                 image_id,
-                "%s.%s" % (image.name, ext))
+                name)
         download_dir = os.path.dirname(download_location)
         if not os.path.exists(download_dir):
             os.makedirs(download_dir)
@@ -240,7 +243,6 @@ class ImageManager(BaseDriver):
         machine = self.get_image(image_id)
         if not machine:
             raise Exception("Machine Not Found.")
-
         #We need more directories to store things..
         download_dir = os.path.dirname(download_location)
         part_dir = self._mkdir_image_parts(download_dir, image_id)
@@ -248,10 +250,10 @@ class ImageManager(BaseDriver):
         #Get image location and unbundle the files based on the manifest and
         #parts
         logger.debug("Attempt to download to file:%s" % download_location)
-        image_path = machine.location
-        image_location = self._download_euca_image(image_path, download_dir,
+        image_s3_path = machine.location
+        image_location = self._download_euca_image(image_s3_path, download_dir,
                                                 part_dir, self.pk_path,
-                                                download_location)[0]
+                                                download_location)
         return image_location
 
     def parse_upload_args(self, instance_id, image_name, image_path, **kwargs):
@@ -856,11 +858,11 @@ class ImageManager(BaseDriver):
     Indirect Download Image Functions
     These functions are called indirectly during the 'download_image' process.
     """
-    def _download_euca_image(self, image_path, download_dir, part_dir,
+    def _download_euca_image(self, image_s3_path, download_dir, part_dir,
             pk_path, image_location=None):
         logger.debug("Complete. Begin Download of Image  @ %s.."
                      % datetime.now())
-        (bucket_name, manifest_loc) = image_path.split('/')
+        (bucket_name, manifest_loc) = image_s3_path.split('/')
         if not image_location:
             image_location =  os.path.join(
                 download_dir,
@@ -873,13 +875,12 @@ class ImageManager(BaseDriver):
             return image_location
         bucket = self.get_bucket(bucket_name)
         logger.debug("Bucket found : %s" % bucket)
-        self._download_manifest(bucket, part_dir, manifest_loc)
+        manifest_local_file = self._download_manifest(bucket, part_dir, manifest_loc)
         logger.debug("Manifest downloaded")
         part_list = self._download_parts(bucket, part_dir, manifest_loc)
         logger.debug("Image parts downloaded to %s" % part_dir)
         actual_location = self._unbundle_manifest(part_dir, download_dir,
-                                                  os.path.join(part_dir,
-                                                               manifest_loc),
+                                                  manifest_local_file,
                                                   pk_path, part_list)
         logger.debug("Complete @ %s.." % datetime.now())
         if actual_location != image_location:
@@ -889,9 +890,13 @@ class ImageManager(BaseDriver):
     def _download_manifest(self, bucket, download_dir, manifest_name):
         k = Key(bucket)
         k.key = manifest_name
-        man_file = open(os.path.join(download_dir, manifest_name), 'wb')
-        k.get_contents_to_file(man_file)
-        man_file.close()
+        manifest_local_file = os.path.join(download_dir, manifest_name)
+        with open(manifest_local_file,'wb') as man_file:
+            k.get_contents_to_file(man_file)
+        return manifest_local_file
+        #man_file = open(manifest_local_file, 'wb')
+        #k.get_contents_to_file(man_file)
+        #man_file.close()
 
     def _download_parts(self, bucket, download_dir, manifest_name):
         man_file_loc = os.path.join(download_dir, manifest_name)
@@ -935,9 +940,10 @@ class ImageManager(BaseDriver):
         os.remove(encrypted_image)
         logger.debug("Image decrypted.. Untarring")
         image = self.euca.untarzip_image(download_dir, tarred_image)
+        image_path = os.path.join(download_dir,image[0])
         os.remove(tarred_image)
         logger.debug("Image untarred")
-        return image
+        return image_path
     """
     Generally Indirect functions - These are useful for
     debugging and gathering necessary info at the REPL

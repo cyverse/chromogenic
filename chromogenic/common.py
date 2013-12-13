@@ -550,14 +550,14 @@ def _fdisk_get_partition(image_path):
     return partition
 
 
-def _get_next_loopback():
+def _get_next_loop():
     loop_name = '/dev/loop'
     loop_count = 0
     MAX_COUNT = 7
     while loop_count < MAX_COUNT:
         loop_dev = '%s%s' % (loop_name, loop_count)  # /dev/loop[0,1,2,...]
         out, err = run_command(['losetup',loop_dev])
-        if 'no such device' in out.lower():
+        if 'no such device' in err.lower():
             #No such device means the loop is empty, ready for use.
             return loop_dev
         loop_count += 1
