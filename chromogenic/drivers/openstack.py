@@ -560,8 +560,8 @@ class ImageManager(BaseDriver):
 
     def find_image(self, image_name, contains=False):
         return [i for i in self.glance.images.list() if
-                i.name == image_name or
-                (contains and image_name in i.name)]
+                i.name.lower() == image_name.lower() or
+                (contains and image_name.lower() in i.name.lower())]
 
     def find_tenant(self, tenant_name):
         try:

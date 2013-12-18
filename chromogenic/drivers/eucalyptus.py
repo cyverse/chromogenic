@@ -139,8 +139,9 @@ class ImageManager(BaseDriver):
         if not kwargs.has_key('node_scp_info'):
             raise Exception("Imaging Aborted - node_scp_info missing, cannot"
                             " download the instance without it!")
+        scp_dict = kwargs.get('node_scp_info',{})
         for key in ['hostname','port','private_key']:
-            if  not kwargs['node_scp_info'].has_key(key):
+            if  not scp_dict.has_key(key):
                 raise Exception(
                         "Imaging Aborted - node_scp_info missing KEY<%s>, cannot"
                         " download the instance without it!" % key)
