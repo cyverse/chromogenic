@@ -16,6 +16,7 @@ manager = ImageManager(**credentials)
 manager.create_image('75fdfca4-d49d-4b2d-b919-a3297bc6d7ae', 'my new name')
 
 """
+import ipdb
 import os
 import time
 from pytz import datetime
@@ -34,7 +35,7 @@ from chromogenic.common import run_command, wildcard_remove
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
                                   remove_vm_specific_data
 from chromogenic.common import unmount_image, mount_image, remove_files,\
-                                    fsck_qcow, get_latest_ramdisk
+                                  get_latest_ramdisk
 from keystoneclient.exceptions import NotFound
 
 class ImageManager(BaseDriver):
@@ -152,7 +153,6 @@ class ImageManager(BaseDriver):
             snapshot_id, download_location = self.download_snapshot(snapshot_id, download_location)
         else:
             snapshot_id, download_location = self._download_instance(instance_id, download_location)
-        fsck_qcow(download_location) # Maintain image consistency..
         return snapshot_id, download_location
 
     def create_image(self, instance_id, image_name, *args, **kwargs):
@@ -167,6 +167,7 @@ class ImageManager(BaseDriver):
         """
         #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
         download_kwargs = self.download_instance_args(instance_id, image_name, **kwargs)
+        ipdb.set_trace()
         snapshot_id, download_location = self.download_instance(**download_kwargs)
         download_dir = os.path.dirname(download_location)
         snapshot = self.get_image(snapshot_id)
@@ -187,8 +188,8 @@ class ImageManager(BaseDriver):
         new_image = self.upload_local_image(**upload_args)
 
         if not kwargs.get('keep_image',False):
-            snapshot.delete()
             wildcard_remove(download_dir)
+            snapshot.delete()
 
         return new_image
 
@@ -264,13 +265,22 @@ class ImageManager(BaseDriver):
         an image by running 'sync' and 'freeze' on the instance. See
         http://docs.openstack.org/grizzly/openstack-ops/content/snapsnots.html#consistent_snapshots
         """
-
         #Step 2: Create local path for copying image
         server = self.get_server(instance_id)
         tenant = find(self.keystone.tenants, id=server.tenant_id)
+        ss_prefix = 'ChromoSnapShot_%s' % instance_id
+        if os.path.exists(download_location):
+            logger.info("Download location exists. Looking for snapshot..")
+            snapshot = self.find_image(ss_prefix, contains=True)
+            if snapshot:
+                snapshot = snapshot[0]
+                logger.info("Found snapshot %s. "
+                            "Download skipped for local copy"
+                            % snapshot.id)
+                return (snapshot.id, download_location)
         now = datetime.datetime.now() # Pytz datetime
         now_str = now.strftime('%Y-%m-%d_%H:%M:%S')
-        ss_name = 'ChromoSnapShot_%s_%s' % (instance_id, now_str)
+        ss_name = '%s_%s' % (ss_prefix, now_str)
         meta_data = {}
         snapshot = self.create_snapshot(instance_id, ss_name, delay=True, **meta_data)
         return (snapshot.id,

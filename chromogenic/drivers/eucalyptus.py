@@ -546,8 +546,9 @@ class ImageManager(BaseDriver):
 
     def get_instance_node(self, instance_id):
         (nodes, instances) = self._build_instance_nc_map()
-        node_controller_ip = nodes[instance_id]
-        logger.info("Instance found on Node: %s" % node_controller_ip)
+        node_controller_ip = nodes.get(instance_id)
+        logger.info("Instance:%s exists on Node:%s"
+                    % (instance_id,node_controller_ip))
         return node_controller_ip
 
     #Delete privates

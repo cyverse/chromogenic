@@ -532,10 +532,9 @@ def mount_qcow(image_path, mount_point):
     except Exception:
         logger.exception('Could not mount QCOW image:%s to device:%s'
                 % (image_path, nbd_dev))
-        return False, None
-    finally:
-        #Run regardless of exception
+        #Run only on exception.. We want to keep the image mounted!
         run_command(['qemu-nbd', '-d', nbd_dev])
+        return False, None
 
 
 def fdisk_image(image_path):
