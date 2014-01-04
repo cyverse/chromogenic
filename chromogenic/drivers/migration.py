@@ -149,7 +149,7 @@ class Xen2KVM(MigrationPlan):
         #             "./single/command.sh arg1 arg2 ..."])
         #Run this command in a prepared chroot
         run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
-                     "apt-get install -qy kernel mkinitrd grub"])
+                     "apt-get install -qy linux-image initramfs-tools grub"])
         pass
 
     @classmethod

@@ -313,6 +313,8 @@ class ImageManager(BaseDriver):
         image = self.glance.images.get(image_id)
         #Step 2: Download local copy of snapshot
         logger.debug("Image downloading to %s" % download_location)
+        if not os.path.exists(download_location):
+            os.makedirs(os.path.dirname(download_location))
         with open(download_location,'w') as f:
             for chunk in image.data():
                 f.write(chunk)
