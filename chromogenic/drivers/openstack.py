@@ -125,7 +125,7 @@ class ImageManager(BaseDriver):
             #Use download dir & tenant_name to keep filesystem order
             tenant = find(self.keystone.tenants, id=server.tenant_id)
             local_user_dir = os.path.join(download_dir, tenant.name)
-            if not os.path.exists(local_user_dir):
+            if not os.path.exists(os.path.dirname(local_user_dir)):
                 os.makedirs(local_user_dir)
             download_location = os.path.join(local_user_dir, '%s.qcow2' % image_name)
         elif not download_dir:
@@ -315,7 +315,7 @@ class ImageManager(BaseDriver):
         image = self.glance.images.get(image_id)
         #Step 2: Download local copy of snapshot
         logger.debug("Image downloading to %s" % download_location)
-        if not os.path.exists(download_location):
+        if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'w') as f:
             for chunk in image.data():

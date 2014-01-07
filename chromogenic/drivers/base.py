@@ -6,7 +6,7 @@ from chromogenic.clean import remove_user_data, remove_atmo_data,\
                                   remove_vm_specific_data
 from chromogenic.common import prepare_chroot_env, remove_chroot_env
 
-logger = loggging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class BaseDriver():
     def parse_download_args(self, instance_id, **kwargs):
