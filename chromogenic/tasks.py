@@ -1,13 +1,14 @@
+import logging
 from datetime import datetime
-import ipdb
-from celery.decorators import task
 
-from threepio import logger
+from celery.decorators import task
 
 from chromogenic.migrate import migrate_instance
 from chromogenic.drivers.virtualbox import ExportManager
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 @task(name='machine_export_task', ignore_result=False)
 def machine_export_task(machine_export):

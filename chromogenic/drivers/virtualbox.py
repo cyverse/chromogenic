@@ -4,11 +4,13 @@ ExportManager:
 """
 
 import getopt
-import sys
-import os
 import glob
+import logging
+import os
 import subprocess
+import sys
 import time
+
 from hashlib import md5
 from datetime import datetime
 from urlparse import urlparse
@@ -24,7 +26,6 @@ from boto.resultset import ResultSet
 
 from euca2ools import Euca2ool, FileValidationError, Util, ConnectionFailed
 
-from threepio import logger
 
 from django.utils import timezone
 
@@ -36,6 +37,7 @@ from chromogenic.common import run_command, copy_disk, create_empty_image
 from chromogenic.common import mount_image, check_distro
 from chromogenic.export import add_virtualbox_support
 
+logger = logging.getLogger(__name__)
 
 class ExportManager():
     """

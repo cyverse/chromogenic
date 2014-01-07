@@ -19,7 +19,7 @@ import sys
 import os
 import math
 import subprocess
-
+import logging
 from datetime import datetime
 from urlparse import urlparse
 from xml.dom import minidom
@@ -37,8 +37,9 @@ from chromogenic.common import run_command, wildcard_remove
 from chromogenic.common import mount_image, get_latest_ramdisk,\
                                _copy_kernel, _copy_ramdisk
 from django.conf import settings
-from threepio import logger
 from chromogenic.drivers.base import BaseDriver
+
+logger = logging.getLogger(__name__)
 
 class ImageManager(BaseDriver):
     """

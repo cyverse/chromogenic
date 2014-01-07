@@ -1,11 +1,12 @@
 import os
-
+import logging
 from chromogenic.common import mount_image, remove_files, fsck_image
 from chromogenic.common import run_command
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
                                   remove_vm_specific_data
 from chromogenic.common import prepare_chroot_env, remove_chroot_env
-from threepio import logger
+
+logger = loggging.getLogger(__name__)
 
 class BaseDriver():
     def parse_download_args(self, instance_id, **kwargs):

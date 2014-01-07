@@ -14,7 +14,7 @@ Migrating an Instance/Image (Example: Eucalyptus --> Openstack)
 """
 import os
 
-from threepio import logger
+import logging
 
 from chromogenic.common import create_file, mount_image, run_command,\
                                check_distro, apply_label, build_imaging_dirs
@@ -32,6 +32,7 @@ from chromogenic.common import append_line_in_files,\
                                remove_multiline_in_files,\
                                remove_files
 
+logger = logging.getLogger(__name__)
 
 class MigrationPlan():
     """

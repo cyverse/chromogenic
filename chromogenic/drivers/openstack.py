@@ -19,9 +19,9 @@ manager.create_image('75fdfca4-d49d-4b2d-b919-a3297bc6d7ae', 'my new name')
 import ipdb
 import os
 import time
-from pytz import datetime
-from threepio import logger
+import logging
 
+from pytz import datetime
 from rtwo.provider import OSProvider
 from rtwo.identity import OSIdentity
 from rtwo.driver import OSDriver
@@ -37,6 +37,8 @@ from chromogenic.clean import remove_user_data, remove_atmo_data,\
 from chromogenic.common import unmount_image, mount_image, remove_files,\
                                   get_latest_ramdisk
 from keystoneclient.exceptions import NotFound
+
+logger = logging.getLogger(__name__)
 
 class ImageManager(BaseDriver):
     """

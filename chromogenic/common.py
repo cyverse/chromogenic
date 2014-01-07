@@ -2,8 +2,9 @@ import glob
 import os
 import re
 import subprocess
+import logging
 
-from threepio import logger
+logger = logging.getLogger(__name__)
 
 ##
 # Tools

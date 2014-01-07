@@ -1,9 +1,11 @@
 import os
 
-from threepio import logger
+import logging
 
 from chromogenic.common import wildcard_remove
 from chromogenic.drivers.migration import KVM2Xen, Xen2KVM
+
+logger = logging.getLogger(__name__)
 
 def migrate_instance(src_managerCls, src_manager_creds, migrationCls, migration_creds, **imaging_args):
     """
