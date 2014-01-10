@@ -16,7 +16,6 @@ manager = ImageManager(**credentials)
 manager.create_image('75fdfca4-d49d-4b2d-b919-a3297bc6d7ae', 'my new name')
 
 """
-import ipdb
 import os
 import time
 import logging
@@ -169,7 +168,6 @@ class ImageManager(BaseDriver):
         """
         #Step 1: Retrieve a copy of the instance ( Use snapshot_id if given )
         download_kwargs = self.download_instance_args(instance_id, image_name, **kwargs)
-        ipdb.set_trace()
         snapshot_id, download_location = self.download_instance(**download_kwargs)
         download_dir = os.path.dirname(download_location)
         snapshot = self.get_image(snapshot_id)
