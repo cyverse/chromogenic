@@ -19,6 +19,7 @@ manager.create_image('75fdfca4-d49d-4b2d-b919-a3297bc6d7ae', 'my new name')
 import os
 import time
 import logging
+import string
 
 from pytz import datetime
 from rtwo.provider import OSProvider
@@ -28,7 +29,6 @@ from rtwo.drivers.common import _connect_to_keystone, _connect_to_nova,\
                                    _connect_to_glance, find
 
 from service.deploy import freeze_instance, sync_instance
-from service.tasks.driver import deploy_to
 from chromogenic.drivers.base import BaseDriver
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
@@ -126,10 +126,15 @@ class ImageManager(BaseDriver):
             local_user_dir = os.path.join(download_dir, tenant.name)
             if not os.path.exists(os.path.dirname(local_user_dir)):
                 os.makedirs(local_user_dir)
-            download_location = os.path.join(local_user_dir, '%s.qcow2' % image_name)
+            download_location = os.path.join(
+                local_user_dir, '%s.qcow2' % self.clean_path(image_name))
         elif not download_dir:
             download_dir = os.path.dirname(download_location)
         return download_dir, download_location
+
+    def clean_path(image_name):
+        valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+        return ''.join(ch for ch in image_name if ch in valid_chars)
 
     def download_instance_args(self, instance_id, image_name='', **kwargs):
         #Step 0: Is the instance alive?
@@ -180,9 +185,12 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
+        import ipdb;ipdb.set_trace()
         upload_args = self.parse_upload_args(image_name, download_location,
                                              kernel_id=snapshot.properties['kernel_id'],
                                              ramdisk_id=snapshot.properties['ramdisk_id'],
+                                             disk_format=snapshot.properties['disk_format'],
+                                             container_format=snapshot.properties['container_format'],
                                              **kwargs)
 
         new_image = self.upload_local_image(**upload_args)
@@ -211,9 +219,9 @@ class ImageManager(BaseDriver):
                     image_path, **kwargs)
         #one path and one id OR no path no id
         else:
-            raise Exception("Cannot create upload arguments without either:"
-                             " 1. kernel_id + ramdisk_id OR"
-                             " 2. kernel_path + ramdisk_path")
+            #Image does not need a kernel/ramdisk and runs entirely on its own.
+            return self._parse_args_upload_local_image(
+                image_name, image_path, **kwargs)
 
     def _parse_args_upload_full_image(self, image_name,
                                       image_path, **kwargs):
@@ -231,15 +239,16 @@ class ImageManager(BaseDriver):
         upload_args = {
              'image_path':image_path,
              'image_name':image_name,
-             'container_format':'ami',
-             'disk_format':'ami',
+             'disk_format':kwargs.get('disk_format', 'ami'),
+             'container_format':kwargs.get('container_format','ami'),
              'is_public':kwargs.get('public', True), 
              'private_user_list':kwargs.get('private_user_list', []), 
-             'properties':{
-                 'kernel_id' :  kwargs['kernel_id'],
-                 'ramdisk_id' : kwargs['ramdisk_id']
-             }
         }
+        if kwargs.get('kernel_id') and kwargs.get('ramdisk_id'):
+            upload_args['properties'] = {
+                'kernel_id' :  kwargs['kernel_id'],
+                'ramdisk_id' : kwargs['ramdisk_id']
+            }
         return upload_args
 
     def download_snapshot(self, snapshot_id, download_location, *args, **kwargs):
