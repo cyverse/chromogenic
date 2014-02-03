@@ -185,12 +185,11 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
-        import ipdb;ipdb.set_trace()
         upload_args = self.parse_upload_args(image_name, download_location,
                                              kernel_id=snapshot.properties['kernel_id'],
                                              ramdisk_id=snapshot.properties['ramdisk_id'],
-                                             disk_format=snapshot.properties['disk_format'],
-                                             container_format=snapshot.properties['container_format'],
+                                             disk_format=snapshot.disk_format,
+                                             container_format=snapshot.container_format,
                                              **kwargs)
 
         new_image = self.upload_local_image(**upload_args)

@@ -105,12 +105,15 @@ class ImageManager(BaseDriver):
 
         #Step 1. Download
         download_args = self.download_instance_args(instance_id, image_name, **kwargs)
+        logger.debug("Downloading instance: %s" % instance_id)
         download_location = self.download_instance(**download_args)
+        logger.debug("Instance downloaded to %s" % download_location)
         download_dir = download_args['download_dir']
         mount_point = self.build_imaging_dirs(download_dir)
 
         #Step 2. Mount and Clean image 
         if kwargs.get('clean_image',True):
+            logger.debug("Cleaning image file: %s" % download_location)
             self.mount_and_clean(
                     download_location,
                     mount_point,
@@ -119,10 +122,13 @@ class ImageManager(BaseDriver):
         ##Step 3. Upload image
         upload_kwargs = self.parse_upload_args(
                 instance_id, image_name, download_location, **kwargs)
+        logger.debug("Uploading image file: %s" % download_location)
         new_image_id = self.upload_local_image(**upload_kwargs)
+        logger.debug("image file uploaded. New Image: %s" % new_image_id)
 
         #Step 4. Cleanup, return
         if not kwargs.get('keep_image',False):
+            logger.debug("Removing all files/directories in %s" % download_dir)
             wildcard_remove(download_dir)
         return new_image_id
 
@@ -624,7 +630,8 @@ class ImageManager(BaseDriver):
             #Where should the file go
             scp_command_list.extend([local_path])
             #Print and execute
-            logger.info(' '.join(map(str,scp_command_list)))
+            logger.info("Downloading image: <%s>"
+                        % (' '.join(map(str,scp_command_list)),))
             run_command(scp_command_list)
             return local_path
         finally:
