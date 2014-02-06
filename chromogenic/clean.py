@@ -103,6 +103,8 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
                    ]
     remove_line_files = []
     overwrite_files = [
+        'etc/udev/rules.d/70-persistent-net.rules',
+        'lib/udev/rules.d/75-persistent-net-generator.rules',
         'root/.bash_history', 'var/log/auth.log',
         'var/log/boot.log', 'var/log/daemon.log',
         'var/log/denyhosts.log', 'var/log/dmesg',
@@ -115,6 +117,8 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
         'var/log/yum.log']
     replace_line_files = [
         #('replace_pattern','replace_with','in_file'),
+        ("HWADDR=*", "", "etc/sysconfig/network-scripts/ifcfg-eth0"),
+        ("MACADDR=*", "", "etc/sysconfig/network-scripts/ifcfg-eth0"),
         ("SELINUX=.*", "SELINUX=disabled", "etc/syslinux/selinux"),
     ]
     multiline_delete_files = [
