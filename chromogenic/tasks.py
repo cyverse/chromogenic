@@ -54,14 +54,18 @@ def machine_export_task(machine_export):
 
 @task(name='migrate_instance_task', ignore_result=False)
 def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
+    logger.debug("migrate_instance_task task started at %s." % datetime.now())
     new_image_id = migrate_instance(origCls, orig_creds,
                      migrateCls, migrate_creds,
                      **imaging_args)
+    logger.debug("migrate_instance_task task finished at %s." % datetime.now())
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)
 def machine_imaging_task(managerCls, manager_creds, create_img_args):
+    logger.debug("machine_imaging_task task started at %s." % datetime.now())
     manager = managerCls(**manager_creds)
     new_image_id = manager.create_image(**create_img_args)
+    logger.debug("machine_imaging_task task finished at %s." % datetime.now())
     return new_image_id
 
