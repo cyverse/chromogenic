@@ -10,7 +10,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-@task(name='machine_export_task', ignore_result=False)
+@task(name='machine_export_task', queue="imaging", ignore_result=False)
 def machine_export_task(machine_export):
     logger.info("machine_export_task task started at %s." % datetime.now())
     machine_export.status = 'processing'
@@ -52,7 +52,7 @@ def machine_export_task(machine_export):
     logger.info("machine_export_task task finished at %s." % datetime.now())
     return (md5_sum, url)
 
-@task(name='migrate_instance_task', ignore_result=False)
+@task(name='migrate_instance_task', queue="imaging", ignore_result=False)
 def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
     logger.info("migrate_instance_task task started at %s." % datetime.now())
     new_image_id = migrate_instance(origCls, orig_creds,
@@ -61,7 +61,7 @@ def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imag
     logger.info("migrate_instance_task task finished at %s." % datetime.now())
     return new_image_id
 
-@task(name='machine_imaging_task', ignore_result=False)
+@task(name='machine_imaging_task', queue="imaging" ignore_result=False)
 def machine_imaging_task(managerCls, manager_creds, create_img_args):
     logger.info("machine_imaging_task task started at %s." % datetime.now())
     manager = managerCls(**manager_creds)

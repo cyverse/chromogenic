@@ -485,10 +485,10 @@ class ImageManager(BaseDriver):
         #TODO: Set location from kwargs
         provider = OSProvider(identifier=kwargs.get('location'))
         admin_creds = self._admin_identity_creds(**kwargs)
-        logger.info("ADMINID Creds:%s" % admin_creds)
+        #logger.info("ADMINID Creds:%s" % admin_creds)
         identity = OSIdentity(provider, **admin_creds)
         driver_creds = self._admin_driver_creds(**kwargs)
-        logger.info("ADMINDriver Creds:%s" % driver_creds)
+        #logger.info("ADMINDriver Creds:%s" % driver_creds)
         admin_driver = OSDriver(provider, identity, **driver_creds)
         return admin_driver
 
