@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @task(name='machine_export_task', ignore_result=False)
 def machine_export_task(machine_export):
-    logger.debug("machine_export_task task started at %s." % datetime.now())
+    logger.info("machine_export_task task started at %s." % datetime.now())
     machine_export.status = 'processing'
     machine_export.save()
 
@@ -49,23 +49,23 @@ def machine_export_task(machine_export):
     #TODO: Option to copy this file into iRODS
     #TODO: Option to upload this file into S3 
 
-    logger.debug("machine_export_task task finished at %s." % datetime.now())
+    logger.info("machine_export_task task finished at %s." % datetime.now())
     return (md5_sum, url)
 
 @task(name='migrate_instance_task', ignore_result=False)
 def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imaging_args):
-    logger.debug("migrate_instance_task task started at %s." % datetime.now())
+    logger.info("migrate_instance_task task started at %s." % datetime.now())
     new_image_id = migrate_instance(origCls, orig_creds,
                      migrateCls, migrate_creds,
                      **imaging_args)
-    logger.debug("migrate_instance_task task finished at %s." % datetime.now())
+    logger.info("migrate_instance_task task finished at %s." % datetime.now())
     return new_image_id
 
 @task(name='machine_imaging_task', ignore_result=False)
 def machine_imaging_task(managerCls, manager_creds, create_img_args):
-    logger.debug("machine_imaging_task task started at %s." % datetime.now())
+    logger.info("machine_imaging_task task started at %s." % datetime.now())
     manager = managerCls(**manager_creds)
     new_image_id = manager.create_image(**create_img_args)
-    logger.debug("machine_imaging_task task finished at %s." % datetime.now())
+    logger.info("machine_imaging_task task finished at %s." % datetime.now())
     return new_image_id
 

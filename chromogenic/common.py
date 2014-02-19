@@ -49,7 +49,7 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
 
 def overwrite_file(filepath, dry_run=False):
     if not os.path.exists(filepath):
-        logger.warn("Cannot copy /dev/null to non-existent file: %s" %
+        logger.info("Cannot copy /dev/null to non-existent file: %s" %
                 filepath)
         return
     cmd_list = ['/bin/cp', '-f', '/dev/null', '%s' % filepath]
