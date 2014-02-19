@@ -61,7 +61,7 @@ def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imag
     logger.info("migrate_instance_task task finished at %s." % datetime.now())
     return new_image_id
 
-@task(name='machine_imaging_task', queue="imaging" ignore_result=False)
+@task(name='machine_imaging_task', queue="imaging", ignore_result=False)
 def machine_imaging_task(managerCls, manager_creds, create_img_args):
     logger.info("machine_imaging_task task started at %s." % datetime.now())
     manager = managerCls(**manager_creds)
