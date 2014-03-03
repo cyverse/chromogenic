@@ -526,7 +526,8 @@ class ImageManager(BaseDriver):
         return None
 
     #Image sharing
-    def shared_images_for(self, tenant_name=None, image_name=None):
+    def shared_images_for(self, tenant_name=None,
+                          image_name=None, image_id=None):
         """
 
         @param can_share
@@ -536,6 +537,9 @@ class ImageManager(BaseDriver):
         if tenant_name:
             tenant = self.find_tenant(tenant_name)
             return self.glance.image_members.list(member=tenant)
+        if image_id:
+            image = self.get_image(image_id)
+            return self.glance.image_members.list(image=image)
         if image_name:
             image = self.find_image(image_name)
             return self.glance.image_members.list(image=image)
@@ -548,6 +552,8 @@ class ImageManager(BaseDriver):
         If True, allow that tenant to share image with others
         """
         tenant = self.find_tenant(tenant_name)
+        if not tenant:
+            raise Exception("No tenant named %s" % tenant_name)
         return self.glance.image_members.create(
                     image, tenant.id, can_share=can_share)
 
@@ -558,17 +564,27 @@ class ImageManager(BaseDriver):
     #Alternative image uploading
 
     #Lists
-    def admin_list_images(self):
+    def update_image(self, image, **kwargs):
+        if 'properties' not in kwargs:
+            properties = image.properties
+        else:
+            properties = kwargs.pop("properties")
+        image.update(properties=properties, **kwargs)
+        #After the update, change reference to new image with updated vals
+        return self.glance.images.get(image.id)
+
+    def admin_list_images(self, **kwargs):
+        # Same call..
+        return self.list_images(**kwargs)
+
+    def list_images(self, **kwargs):
         """
         These images have an update() function
         to update attributes like public/private, min_disk, min_ram
 
         NOTE: glance.images.list() returns a generator, we return lists
         """
-        return [i for i in self.glance.images.list()]
-
-    def list_images(self):
-        return [img for img in self.glance.images.list()]
+        return [img for img in self.glance.images.list(**kwargs)]
 
     #Finds
     def get_image(self, image_id):
