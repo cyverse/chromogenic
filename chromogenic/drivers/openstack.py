@@ -373,12 +373,12 @@ class ImageManager(BaseDriver):
                                              kernel_path,
                                              container_format='aki', 
                                              disk_format='aki', 
-                                             is_public=True)
+                                             is_public=is_public)
         new_ramdisk = self.upload_local_image('eri-%s' % image_name,
                                              ramdisk_path,
                                              container_format='ari', 
                                              disk_format='ari', 
-                                             is_public=True)
+                                             is_public=is_public)
         opts = {
             'kernel_id' : new_kernel,
             'ramdisk_id' : new_ramdisk
@@ -389,6 +389,8 @@ class ImageManager(BaseDriver):
                                              is_public=is_public,
                                              properties=opts)
         for tenant_name in private_user_list:
+            share_image(new_kernel,tenant_name)
+            share_image(new_ramdisk,tenant_name)
             share_image(new_image,tenant_name)
             logger.debug("%s has permission to launch %s"
                          % (tenant_name, new_image))
