@@ -11,12 +11,35 @@ logger = logging.getLogger(__name__)
 ##
 
 def atmo_required_files(mounted_path):
-    #Add the atmosphere pub-key to every instance, just-in-case
-    #SSH Key injection fails
+    #Add the atmosphere pub-key to every instance, because SSH key injection can fail..
+    inject_atmo_key(mounted_path)
+    inject_denyhosts_file(mounted_path)
+
+def inject_atmo_key(mounted_path):
     append_line_list = [
-        ("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVVkgGS8QwHet+aF401l6MLD206yfE76Pe8UAbWhKdE1155IHyDumS5226cTf+5/1zqyzlGwvHJMhzJEztImJghXAWMw7AOzDUYmIpGGhnvmVE1mJN6Iy3aRDyJOcPOqd1ZGbywzzQioiYjoxKa/HT5QN5F/4Mdsqn3mgFdWgXxmY7X3fZGphk5vOK/8J8tSpy4dLIBI+WRrN4ZR7IOrvzkZght/YjtvgPhJqZzgEzcTP4BMpUNWlOFL95Usk3lzqJTBDzlM71ivaHQ3OqxrjpThMSGoQhedupsx8FrmBvOo1OxjfIj0/hIEtjH9FE2lc5GZBy7B1EuqXApR7Vopa3 atmo@iplantcollaborative.org","root/.ssh/authorized_keys"),
+        ("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVVkgGS8QwHet+aF401l6MLD206yfE76Pe8UAbWhKdE1155IHyDumS5226cTf+5/1zqyzlGwvHJMhzJEztImJghXAWMw7AOzDUYmIpGGhnvmVE1mJN6Iy3aRDyJOcPOqd1ZGbywzzQioiYjoxKa/HT5QN5F/4Mdsqn3mgFdWgXxmY7X3fZGphk5vOK/8J8tSpy4dLIBI+WRrN4ZR7IOrvzkZght/YjtvgPhJqZzgEzcTP4BMpUNWlOFL95Usk3lzqJTBDzlM71ivaHQ3OqxrjpThMSGoQhedupsx8FrmBvOo1OxjfIj0/hIEtjH9FE2lc5GZBy7B1EuqXApR7Vopa3 atmo@iplantcollaborative.org\n","root/.ssh/authorized_keys"),
     ]
     append_line_in_files(append_line_list, mounted_path)
+
+def inject_denyhosts_file(mounted_path):
+    #Create some whitelists for denyhosts:
+    ALLOWED_HOST_LIST = [
+        ("128.196.172.*", "var/lib/denyhosts/allowed-hosts"),
+        ("128.196.142.*", "var/lib/denyhosts/allowed-hosts"),
+        ("128.196.64.*", "var/lib/denyhosts/allowed-hosts"),
+        ("128.196.65.*", "var/lib/denyhosts/allowed-hosts"),
+        ("128.196.38.*", "var/lib/denyhosts/allowed-hosts"),
+        ("150.135.78.*", "var/lib/denyhosts/allowed-hosts"),
+        ("150.135.93.*", "var/lib/denyhosts/allowed-hosts"),
+    ]
+    text_to_write = "\n".join([rule[0] for rule in ALLOWED_HOST_LIST])
+    if not create_file(
+            "var/lib/denyhosts/allowed-hosts", mounted_path, text_to_write):
+        #Create_file failed (File exists -- Append the list.)
+        append_line_in_files(ALLOWED_HOST_LIST, mounted_path)
+    hosts_allow_list = [("ALL: %s" % rule.replace("*",""), "etc/hosts.allow")
+                        for rule,_ in ALLOWED_HOST_LIST]
+    append_line_in_files(hosts_allow_list, mounted_path)
 
 def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 stdin=None, dry_run=False, shell=False):

@@ -373,12 +373,12 @@ class ImageManager(BaseDriver):
                                              kernel_path,
                                              container_format='aki', 
                                              disk_format='aki', 
-                                             is_public=is_public)
+                                             is_public=True)
         new_ramdisk = self.upload_local_image('eri-%s' % image_name,
                                              ramdisk_path,
                                              container_format='ari', 
                                              disk_format='ari', 
-                                             is_public=is_public)
+                                             is_public=True)
         opts = {
             'kernel_id' : new_kernel,
             'ramdisk_id' : new_ramdisk
