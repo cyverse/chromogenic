@@ -318,7 +318,7 @@ class ImageManager(BaseDriver):
         return download_args
 
     def download_image(self, image_id, download_location):
-        image = self.glance.images.get(image_id)
+        image = self.get_image(image_id)
         #Step 2: Download local copy of snapshot
         logger.debug("Image downloading to %s" % download_location)
         if not os.path.exists(os.path.dirname(download_location)):
@@ -402,10 +402,10 @@ class ImageManager(BaseDriver):
             " argument")
 
         if image_name:
-            images = [img for img in self.list_images()
+            images = [img for img in self.admin_list_images()
                       if image_name in img.name]
-        else:
-            images = [self.glance.images.get(image_id)]
+        elif image_id:
+            images = [self.get_image(image_id)]
 
         if len(images) == 0:
             return False
@@ -518,11 +518,11 @@ class ImageManager(BaseDriver):
             return None
         return servers[0]
 
-    def list_images(self):
+    def list_nova_images(self):
         return self.nova.images.list()
 
     def get_image_by_name(self, name):
-        for img in self.glance.images.list():
+        for img in self.admin_list_images():
             if img.name == name:
                 return img
         return None
@@ -573,11 +573,14 @@ class ImageManager(BaseDriver):
             properties = kwargs.pop("properties")
         image.update(properties=properties, **kwargs)
         #After the update, change reference to new image with updated vals
-        return self.glance.images.get(image.id)
+        return self.get_image(image.id)
 
     def admin_list_images(self, **kwargs):
         # Same call..
-        return self.list_images(**kwargs)
+        is_public = None
+        if 'is_public' in kwargs:
+            is_public = kwargs.pop('is_public')
+        return self.list_images(is_public=is_public, **kwargs)
 
     def list_images(self, **kwargs):
         """
@@ -590,14 +593,14 @@ class ImageManager(BaseDriver):
 
     #Finds
     def get_image(self, image_id):
-        found_images = [i for i in self.glance.images.list() if
+        found_images = [i for i in self.admin_list_images() if
                 i.id == image_id]
         if not found_images:
             return None
         return found_images[0]
 
     def find_image(self, image_name, contains=False):
-        return [i for i in self.glance.images.list() if
+        return [i for i in self.admin_list_images() if
                 i.name.lower() == image_name.lower() or
                 (contains and image_name.lower() in i.name.lower())]
 
