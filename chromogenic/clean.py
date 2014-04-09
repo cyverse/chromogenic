@@ -46,6 +46,8 @@ def remove_atmo_data(mounted_path, dry_run=False):
     remove_files = [#Atmo
                     'etc/rc.local.atmo',
                     'usr/sbin/atmo_boot.py',
+                    'var/log/atmo/post-scripts/stdout',
+                    'var/log/atmo/post-scripts/stderr',
                     'var/log/atmo/atmo_boot.log',
                     'var/log/atmo/atmo_init.log',
                     'var/log/atmo/atmo_init_full.log',
