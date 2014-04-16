@@ -57,6 +57,8 @@ def remove_atmo_data(mounted_path, dry_run=False):
                     'var/lib/puppet/run/*.pid',
                     'etc/puppet/ssl', 
                     'var/log/puppet',
+                    #SSH
+                    'root/.ssh',
                    ]
     overwrite_files = []
     remove_line_files = []

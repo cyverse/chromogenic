@@ -62,18 +62,19 @@ class BaseDriver():
         if not result:
             raise Exception("Encountered errors mounting the image: %s"
                     % image_path)
-        #Required for atmosphere
-        atmo_required_files(mount_point)
         #Required cleaning
         remove_user_data(mount_point)
         remove_atmo_data(mount_point)
         remove_vm_specific_data(mount_point)
 
+        #Required for atmosphere
+        atmo_required_files(mount_point)
+
+        #Filesystem cleaning (From within the image)
+        self.file_hook_cleaning(mount_point, **kwargs)
+
         #Driver specific cleaning
         self.clean_hook(image_path, mount_point, *args, **kwargs)
-
-        #Filesystem cleaning
-        self.file_hook_cleaning(mount_point, **kwargs)
         #Don't forget to unmount!
         run_command(['umount', mount_point])
         if nbd_device:

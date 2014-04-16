@@ -19,6 +19,11 @@ def inject_atmo_key(mounted_path):
     append_line_list = [
         ("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVVkgGS8QwHet+aF401l6MLD206yfE76Pe8UAbWhKdE1155IHyDumS5226cTf+5/1zqyzlGwvHJMhzJEztImJghXAWMw7AOzDUYmIpGGhnvmVE1mJN6Iy3aRDyJOcPOqd1ZGbywzzQioiYjoxKa/HT5QN5F/4Mdsqn3mgFdWgXxmY7X3fZGphk5vOK/8J8tSpy4dLIBI+WRrN4ZR7IOrvzkZght/YjtvgPhJqZzgEzcTP4BMpUNWlOFL95Usk3lzqJTBDzlM71ivaHQ3OqxrjpThMSGoQhedupsx8FrmBvOo1OxjfIj0/hIEtjH9FE2lc5GZBy7B1EuqXApR7Vopa3 atmo@iplantcollaborative.org\n","root/.ssh/authorized_keys"),
     ]
+    #Ensure SSH Directory exists
+    ssh_dir = os.path.join(mounted_path,"root/.ssh/")
+    if not os.path.isdir(ssh_dir):
+        os.makedirs(ssh_dir)
+    #Attempt to append.
     append_line_in_files(append_line_list, mounted_path)
 
 def inject_denyhosts_file(mounted_path):
@@ -268,9 +273,15 @@ def copy_disk(old_image, new_image, download_dir):
     #old_img_dir)
     #new_img_dir)
 
-
+def check_root():
+    import getpass
+    if getpass.getuser() == 'root' or os.getuid() == 0:
+        return True
+    return False
 
 def mount_image(image_path, mount_point):
+    if not check_root():
+        raise Exception("Only the root user can mount an image.")
     if not check_dir(mount_point):
         os.makedirs(mount_point)
     return _detect_and_mount_image(image_path, mount_point)
