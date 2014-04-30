@@ -31,6 +31,7 @@ from django.utils import timezone
 
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
 from chromogenic.drivers.migration import Xen2KVM
+from chromogenic.drivers.base import BaseDriver
 from chromogenic.boot import add_grub
 from chromogenic.common import sed_delete_multi, sed_replace, sed_append
 from chromogenic.common import run_command, copy_disk, create_empty_image
@@ -39,85 +40,100 @@ from chromogenic.export import add_virtualbox_support
 
 logger = logging.getLogger(__name__)
 
-class ExportManager():
+class ImageManager(BaseDriver):
     """
     Convienence class that can convert VMs into localized machines for
-    Oracle Virtualbox (R)
+    Oracle Virtualbox®
     """
-    def __init__(self, export_credentials):
-
-        self.export_credentials = export_credentials
-
-
-    def eucalyptus(self, instance_id, vm_name, owner, disk_type='vmdk',
-                   download_dir='/tmp', local_raw_path=None,
-                   harddrive_path=None, appliance_path=None,
-                   no_upload=False, meta_name=None):
+    def __init__(self, *args, **kwargs):
+        if len(args) == 0 and len(kwargs) == 0:
+            raise KeyError("Credentials missing in __init__. ")
+    def create_image(self, instance_id, image_name, *args, **kwargs):
         """
-        Note: vm_name is the name you want for your new virtualbox vm (Does not have to be the same!)
         """
-        self.euca_img_manager = EucaImageManager(**self.export_credentials)
-        #Download the image, then make a bootable RAW copy and install a
-        # bootloader
-        if not local_raw_path or not os.path.exists(local_raw_path):
-            download_dir, local_img_path = self.euca_img_manager.download_instance(
-                download_dir, instance_id,
-                meta_name=meta_name)
-
-            mount_point = os.path.join(download_dir,'mount/')
-
-            try:
-                mount_image(local_img_path, mount_point)
-                distro = check_distro(mount_point)
-            finally:
-                run_command(['umount', mount_point])
-
-            if distro.lower() != 'centos':
-                #TODO: Get it working for ubuntu
-                pass#raise Exception("Whoa! This process only works for CentOS machines!")
+        raise Exception("To create a virtualbox image,"
+                " pass the ImageManager class and arguments as the destination"
+                " fields in a migration")
+    def parse_upload_args(self, **kwargs):
+        pass
+    
+    def upload_local_image(self, image_location, image_name, *args, **kwargs):
+        """
+        Anything that the VBox Export Manager needs to add...
+        """
+        import ipdb;ipdb.set_trace()
+        add_virtualbox_support(mount_point, image_path)
+        self.export_image(image_path)
+        #Do VBox stuff..
 
 
-            self.euca_img_manager._clean_local_image(local_img_path, mount_point)
+    #def eucalyptus(self, instance_id, vm_name, owner, disk_type='vmdk',
+    #               download_dir='/tmp', local_raw_path=None,
+    #               harddrive_path=None, appliance_path=None,
+    #               no_upload=False, meta_name=None):
+    #    """
+    #    Note: vm_name is the name you want for your new virtualbox vm (Does not have to be the same!)
+    #    """
+    #    self.euca_img_manager = EucaImageManager(**self.export_credentials)
+    #    #Download the image, then make a bootable RAW copy and install a
+    #    # bootloader
+    #    if not local_raw_path or not os.path.exists(local_raw_path):
+    #        download_dir, local_img_path = self.euca_img_manager.download_instance(
+    #            download_dir, instance_id,
+    #            meta_name=meta_name)
 
-            Xen2KVM.convert(local_img_path, download_dir)
-            try:
-                mount_image(local_img_path, mount_point)
-                add_virtualbox_support(mount_point, local_img_path)
-            finally:
-                run_command(['umount', mount_point])
+    #        mount_point = os.path.join(download_dir,'mount/')
 
-            #Image is now ready to be placed on a bootable drive, then install
-            #grub-legacy
-            image_size = self._get_file_size_gb(local_img_path)
-            local_raw_path = local_img_path +  ".raw"
-            create_empty_image(local_raw_path, 'raw',
-                               image_size+5,  # Add some empty space..
-                               bootable=True)
-            #copy the data
-            copy_disk(old_image=local_img_path, new_image=local_raw_path,
-                      download_dir=download_dir)
-            #Add grub.
-            try:
-                mount_image(local_raw_path, mount_point)
-                add_grub(mount_point, local_raw_path)
-            finally:
-                run_command(['umount', mount_point])
+    #        try:
+    #            mount_image(local_img_path, mount_point)
+    #            distro = check_distro(mount_point)
+    #        finally:
+    #            run_command(['umount', mount_point])
 
-            #Delete artifacts
-            #Local_raw_path is now a bootable KVM image.
+    #        if distro.lower() != 'centos':
+    #            #TODO: Get it working for ubuntu
+    #            pass#raise Exception("Whoa! This process only works for CentOS machines!")
 
+
+    #    #    self.euca_img_manager._clean_local_image(local_img_path, mount_point)
+
+    #        Xen2KVM.convert(local_img_path, download_dir)
+    #        try:
+    #            mount_image(local_img_path, mount_point)
+    #            add_virtualbox_support(mount_point, local_img_path)
+    #        finally:
+    #            run_command(['umount', mount_point])
+    def rebuild_disk(local_img_path, ext="raw"):
+        #Image is now ready to be placed on a bootable drive, then install grub-legacy
+        image_size = self._get_file_size_gb(local_img_path)
+        local_raw_path = local_img_path +  "." + ext
+        create_empty_image(local_raw_path, ext,
+                           image_size+5,  # Add some empty space..
+                           bootable=True)
+        #copy the data
+        copy_disk(old_image=local_img_path,
+                  new_image=local_raw_path,
+                  download_dir=download_dir)
+        #Add grub.
+        try:
+            mount_image(local_raw_path, mount_point)
+            add_grub(mount_point, local_raw_path)
+        finally:
+            run_command(['umount', mount_point])
+        return local_raw_path
+
+    def export_image(local_img_path, upload=False, *args, **kwargs):
         #Convert the image if it was not passed as a kwarg
-        if not harddrive_path or not os.path.exists(harddrive_path):
-            harddrive_path = self._create_virtual_harddrive(local_raw_path, disk_type)
+        harddrive_path = self._create_virtual_harddrive(
+                local_raw_path, 'vmdk')
 
-        if not appliance_path or not os.path.exists(appliance_path):
-            appliance_path = self._build_and_export_vm(vm_name, harddrive_path)
+        appliance_path = self._build_new_export_vm(vm_name, harddrive_path)
 
         #Get the hash of the converted file
         md5sum = self._large_file_hash(appliance_path)
-        if no_upload:
+        if not upload:
             return (md5sum, appliance_path)
-        ##Archive/Compress/Send to S3
+        ##Archive/Compress/Send the export to S3
         tarfile_name = appliance_path+'.tar.gz'
         self._tarzip_image(tarfile_name, [appliance_path])
         s3_keyname = 'vbox_export_%s_%s' % (instance_id,datetime.now().strftime('%Y%m%d_%H%M%S'))
@@ -132,7 +148,7 @@ class ExportManager():
         return uuid
 
 
-    def _build_and_export_vm(self, name, harddrive_path, vm_opts={}, distro='Linux'):
+    def _build_new_export_vm(self, name, harddrive_path, vm_opts={}, distro='Linux'):
         export_dir = os.path.dirname(harddrive_path)
         hostname_out, _ = run_command(['hostname'])
         export_file = os.path.join(export_dir,'%s_%s_%s.ova' % (name, hostname_out.strip(), timezone.now()))
@@ -163,6 +179,7 @@ class ExportManager():
         
         
     def _get_file_size_gb(self, filename):
+        #TODO: Move to export.py
         import math
         byte_size = os.path.getsize(filename)
         one_gb = 1024**3
@@ -170,12 +187,13 @@ class ExportManager():
         return int(gb_size)
 
 
-    def _export_to_s3(self, keyname, the_file, bucketname='eucalyptus_exports'):
-        key = self.euca_img_manager._upload_file_to_s3(bucketname, keyname, the_file) #Key matches on basename of file
-        url = key.generate_url(60*60*24*7) # 7 days from now.
-        return url
+    #def _export_to_s3(self, keyname, the_file, bucketname='eucalyptus_exports'):
+    #    key = self.euca_img_manager._upload_file_to_s3(bucketname, keyname, the_file) #Key matches on basename of file
+    #    url = key.generate_url(60*60*24*7) # 7 days from now.
+    #    return url
 
     def _large_file_hash(self, file_path):
+        #TODO: Move to export.py
         logger.debug("Calculating MD5 Hash for %s" % file_path)
         md5_hash = md5()
         with open(file_path,'rb') as f:
@@ -184,6 +202,7 @@ class ExportManager():
         return md5_hash.hexdigest()
 
     def _tarzip_image(self, tarfile_path, file_list):
+        #TODO: Move to export.py
         import tarfile
         tar = tarfile.open(tarfile_path, "w:gz")
         logger.debug("Creating tarfile:%s" % tarfile_path)

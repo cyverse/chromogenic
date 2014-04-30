@@ -10,6 +10,39 @@ from chromogenic.common import prepare_chroot_env, remove_chroot_env,\
 from chromogenic.common import sed_replace
 
 
+def export_instance(src_managerCls, src_manager_creds, exportCls, **export_args):
+    """
+    Use the source manager to download a local image file
+    Then start the export by passing the image to exportCls
+    """
+    #Download the image
+    download_manager = src_managerCls(**src_manager_creds)
+    download_kwargs = src_manager.download_instance_args(**export_args)
+    download_location = src_manager.download_instance(**download_kwargs)
+    #Clean the image (Optional)
+    download_dir = os.path.dirname(download_location)
+    mount_point = os.path.join(download_dir, 'mount_point/')
+    if not os.path.exists(mount_point):
+        os.makedirs(mount_point)
+    if export_args.get('clean_image',True):
+        src_manager.mount_and_clean(
+                download_location,
+                mount_point,
+                **export_args)
+    export_args['download_location'] = download_location
+    export_manager = migrationCls(**migration_creds)
+    #Add required files/make necessary changes for export..
+    export_manager.mount_and_clean(
+            download_location,
+            mount_point,
+            **export_args)
+    image_location = export_manager.rebuild_disk(download_location, **export_args)
+    export_args['download_location'] = image_location
+    #Start the export
+    #cleaned_export_args = export_manager.clean_export_args(**export_args)
+    export_file = export_manager.export(**cleaned_export_args)
+    return export_file
+
 def add_virtualbox_support(mounted_path, image_path):
     """
     These configurations are specific to running virtualbox from an exported VM
