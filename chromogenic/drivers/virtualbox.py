@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class ImageManager(BaseDriver):
     """
     Convienence class that can convert VMs into localized machines for
-    Oracle Virtualbox®
+    Oracle Virtualbox
     """
     def __init__(self, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0:
