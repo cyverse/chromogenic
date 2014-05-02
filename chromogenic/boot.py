@@ -11,7 +11,7 @@ def add_grub(mounted_path, image_path):
     """
     distro = check_distro(mounted_path)
     _get_stage_files(mounted_path, distro)
-    _rewrite_grub_conf(mounted_path)
+    _rewrite_grub_conf(mounted_path, distro)
     _install_grub(image_path)
 
 
@@ -48,9 +48,9 @@ def _get_stage_files(root_dir, distro):
     elif distro == 'Ubuntu':
         run_command(['/bin/bash','-c','cp -f %s/extras/export/grub_files/ubuntu/* %s/boot/grub/' % (settings.PROJECT_ROOT, root_dir)])
 
-def _rewrite_grub_conf(mount_point):
+def _rewrite_grub_conf(mount_point, distro):
 
-    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point)
+    latest_rmdisk, rmdisk_version = get_latest_ramdisk(mount_point, distro)
 
     new_grub_conf = """default=0
 timeout=3

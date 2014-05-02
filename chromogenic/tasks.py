@@ -4,7 +4,7 @@ from datetime import datetime
 from celery.decorators import task
 
 from chromogenic.migrate import migrate_instance
-from chromogenic.drivers.virtualbox import ExportManager
+from chromogenic.drivers.virtualbox import ImageManager as VBoxManager
 
 from django.conf import settings
 
@@ -24,7 +24,7 @@ def machine_export_task(machine_export):
     all_creds = {}
     all_creds.update(provider_creds)
     all_creds.update(admin_creds)
-    manager = ExportManager(all_creds)
+    manager = VBoxManager(all_creds)
     #ExportManager().eucalyptus/openstack()
     if 'euca' in exp_provider:
         export_fn = manager.eucalyptus

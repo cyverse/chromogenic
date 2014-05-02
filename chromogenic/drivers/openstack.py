@@ -28,7 +28,6 @@ from rtwo.driver import OSDriver
 from rtwo.drivers.common import _connect_to_keystone, _connect_to_nova,\
                                    _connect_to_glance, find
 
-from service.deploy import freeze_instance, sync_instance
 from chromogenic.drivers.base import BaseDriver
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
