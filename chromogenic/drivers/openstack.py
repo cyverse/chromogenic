@@ -78,10 +78,6 @@ class ImageManager(BaseDriver):
         img_args['auth_url']
         img_args['region_name']
         img_args['admin_url']
-        #Ignored:
-        #img_args.pop('admin_url', None)
-        #img_args.pop('router_name', None)
-        #img_args.pop('ex_project_name', None)
 
         return img_args
 
@@ -91,6 +87,7 @@ class ImageManager(BaseDriver):
         key = creds.pop('key', None)
         secret = creds.pop('secret', None)
         tenant = creds.pop('ex_tenant_name', None)
+        creds.pop('location', None)
         creds.pop('ex_project_name', None)
         creds.pop('router_name', None)
         creds.pop('admin_url', None)
@@ -466,10 +463,10 @@ class ImageManager(BaseDriver):
 
     def _admin_identity_creds(self, **kwargs):
         creds = {}
-        creds['key'] = kwargs.get('key')
-        creds['secret'] = kwargs.get('secret')
-        creds['ex_tenant_name'] = kwargs.get('ex_tenant_name')
-        creds['ex_project_name'] = kwargs.get('ex_project_name')
+        creds['key'] = kwargs.get('username')
+        creds['secret'] = kwargs.get('password')
+        creds['ex_tenant_name'] = kwargs.get('tenant_name')
+        creds['ex_project_name'] = kwargs.get('project_name')
         return creds
 
     def _admin_driver_creds(self, **kwargs):
