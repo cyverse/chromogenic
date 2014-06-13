@@ -67,14 +67,15 @@ class BaseDriver():
         remove_atmo_data(mount_point)
         remove_vm_specific_data(mount_point)
 
-        #Required for atmosphere
-        atmo_required_files(mount_point)
-
         #Filesystem cleaning (From within the image)
         self.file_hook_cleaning(mount_point, **kwargs)
 
         #Driver specific cleaning
         self.clean_hook(image_path, mount_point, *args, **kwargs)
+
+        #Required for atmosphere
+        atmo_required_files(mount_point)
+
         #Don't forget to unmount!
         run_command(['umount', mount_point])
         if nbd_device:
