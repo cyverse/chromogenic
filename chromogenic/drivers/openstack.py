@@ -274,7 +274,8 @@ class ImageManager(BaseDriver):
         tenant = find(self.keystone.tenants, id=server.tenant_id)
         ss_prefix = 'ChromoSnapShot_%s' % instance_id
         if os.path.exists(download_location):
-            logger.info("Download location exists. Looking for snapshot..")
+            logger.info("Download location exists. Looking for snapshot %s.." %
+                        ss_prefix)
             snapshot = self.find_image(ss_prefix, contains=True)
             if snapshot:
                 snapshot = snapshot[0]
@@ -597,8 +598,8 @@ class ImageManager(BaseDriver):
 
     def find_image(self, image_name, contains=False):
         return [i for i in self.admin_list_images() if
-                i.name.lower() == image_name.lower() or
-                (contains and image_name.lower() in i.name.lower())]
+                ( i.name and i.name.lower() == image_name.lower() )
+                or (contains and i.name and image_name.lower() in i.name.lower())]
 
     def find_tenant(self, tenant_name):
         try:

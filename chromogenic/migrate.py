@@ -31,7 +31,7 @@ def migrate_instance(src_managerCls, src_manager_creds, migrationCls, migration_
                 mount_point,
                 **imaging_args)
     #2. Start the migration
-    start_migration(migrationCls, migration_creds, **imaging_args)
+    return start_migration(migrationCls, migration_creds, **imaging_args)
 
 def migrate_image(src_managerCls, src_manager_creds, migrationCls, migration_creds, **imaging_args):
     """
@@ -56,7 +56,7 @@ def migrate_image(src_managerCls, src_manager_creds, migrationCls, migration_cre
                 **imaging_args)
 
     #2. Start the migration
-    start_migration(migrationCls, migration_creds, **imaging_args)
+    return start_migration(migrationCls, migration_creds, **imaging_args)
 
 def start_migration(migrationCls, migration_creds, download_location, **imaging_args):
     """
@@ -90,6 +90,9 @@ def start_migration(migrationCls, migration_creds, download_location, **imaging_
         imaging_args['image_path'] = image_path
         imaging_args['kernel_path'] = kernel_path
         imaging_args['ramdisk_path'] = ramdisk_path
+    else:
+        logger.info("Upload requires no conversion between Xen and KVM.")
+        imaging_args['image_path'] = download_location
     #4. Upload on new
     imaging_args['download_location'] = download_location
     upload_kwargs = dest_manager.parse_upload_args(**imaging_args)
