@@ -37,7 +37,7 @@ def read_requirements(requirements_file):
             if not line:
                 continue
             # Ignore comments.
-            if line.startswith("#"):
+            if line.lstrip().startswith("#"):
                 continue
             # Read the line for version info
             r = git_regex.search(line)
