@@ -33,10 +33,13 @@ def read_requirements(requirements_file):
     git_regex = re.compile(git_match)
     with open(requirements_file, 'r') as f:
         for line in f.read().split('\n'):
-            #Skip empty spaces
+            # Skip empty spaces
             if not line:
                 continue
-            #Read the line for version info
+            # Ignore comments.
+            if line.startswith("#"):
+                continue
+            # Read the line for version info
             r = git_regex.search(line)
             if not r:
                 r = egg_regex.search(line)
