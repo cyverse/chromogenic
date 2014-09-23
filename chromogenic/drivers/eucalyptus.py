@@ -31,7 +31,10 @@ from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 from boto.exception import S3ResponseError, S3CreateError, EC2ResponseError
 from boto.s3.key import Key
 
-from euca2ools import Euca2ool, FileValidationError
+try:
+    from euca2ools import Euca2ool, FileValidationError
+except ImportError:
+    pass
 
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.common import mount_image, get_latest_ramdisk,\
@@ -39,7 +42,9 @@ from chromogenic.common import mount_image, get_latest_ramdisk,\
 from django.conf import settings
 from chromogenic.drivers.base import BaseDriver
 
+
 logger = logging.getLogger(__name__)
+
 
 class ImageManager(BaseDriver):
     """
