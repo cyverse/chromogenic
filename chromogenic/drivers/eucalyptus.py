@@ -31,7 +31,11 @@ from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 from boto.exception import S3ResponseError, S3CreateError, EC2ResponseError
 from boto.s3.key import Key
 
-from euca2ools import Euca2ool, FileValidationError
+try:
+    from euca2ools import Euca2ool, FileValidationError
+    has_euca = True
+except:
+    has_euca = False
 
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.common import mount_image, get_latest_ramdisk,\
@@ -455,6 +459,8 @@ class ImageManager(BaseDriver):
 
     def _init_euca2ool(self, key, secret, url, is_s3=False):
         # Argv must be reset to stop euca from gobbling bad sys.argv's
+        if not has_euca:
+            raise Exception("Euca2ools missing.. Required to run this function")
         sys.argv = []
         euca = Euca2ool(
             short_opts=None,
@@ -755,6 +761,8 @@ class ImageManager(BaseDriver):
     def _upload_file_to_s3(self, bucket_name, keyname,
                            filename, s3_key, s3_secret,
                            s3_url, canned_acl='aws-exec-read'):
+        if not has_euca:
+            raise Exception("Euca2ools missing.. Required to run this function")
         s3euca = Euca2ool(is_s3=True)
         s3euca.ec2_user_access_key = s3_key
         s3euca.ec2_user_secret_key = s3_secret
@@ -796,6 +804,8 @@ class ImageManager(BaseDriver):
             (If different than values in XML)
             part -
         """
+        if not has_euca:
+            raise Exception("Euca2ools missing.. Required to run this function")
         from euca2ools import Euca2ool, FileValidationError
         logger.debug("Validating the manifest")
         try:
