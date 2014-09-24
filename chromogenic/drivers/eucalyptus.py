@@ -92,7 +92,8 @@ class ImageManager(BaseDriver):
         self.s3_url = s3_url
 
         #Initialize connections
-        self.euca = self._init_euca2ool(key, secret, ec2_url)
+        if has_euca:
+            self.euca = self._init_euca2ool(key, secret, ec2_url)
         self.s3_conn = self._boto_s3_conn(key, secret, s3_url)
         self.image_conn = self._boto_ec2_conn(key, secret, ec2_url)
 
