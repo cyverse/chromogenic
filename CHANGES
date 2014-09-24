@@ -1,1 +1,2 @@
-2.1.0 Initial pypi release.
+2.1.0 - Initial pypi release.
+2.1.1 - Improve behavior when euca2ools isn't present.
