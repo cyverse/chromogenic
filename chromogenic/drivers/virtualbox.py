@@ -24,7 +24,10 @@ from boto.exception import S3ResponseError, S3CreateError
 from boto.s3.key import Key
 from boto.resultset import ResultSet
 
-from euca2ools import Euca2ool, FileValidationError, Util, ConnectionFailed
+try:
+    from euca2ools import Euca2ool, FileValidationError, Util, ConnectionFailed
+except ImportError:
+    pass
 
 
 from django.utils import timezone

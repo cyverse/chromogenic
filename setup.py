@@ -9,8 +9,8 @@ long_description = readme
 setuptools.setup(
     name='chromogenic',
     version=get_version('short'),
-    author='steve-gregory',
-    author_email='contact@steve-gregory.com',
+    author='iPlant Collaborative',
+    author_email='atmodevs@gmail.com',
     description="A unified imaging interface supporting multiple cloud providers.",
     long_description=long_description,
     license="Apache License, Version 2.0",

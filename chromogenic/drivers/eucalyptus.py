@@ -34,8 +34,9 @@ from boto.s3.key import Key
 try:
     from euca2ools import Euca2ool, FileValidationError
     has_euca = True
-except:
+except ImportError:
     has_euca = False
+    pass
 
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.common import mount_image, get_latest_ramdisk,\
@@ -43,7 +44,9 @@ from chromogenic.common import mount_image, get_latest_ramdisk,\
 from django.conf import settings
 from chromogenic.drivers.base import BaseDriver
 
+
 logger = logging.getLogger(__name__)
+
 
 class ImageManager(BaseDriver):
     """

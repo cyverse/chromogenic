@@ -5,7 +5,7 @@ Current logger version.
 from subprocess import Popen, PIPE
 from os.path import abspath, dirname
 
-VERSION = (0, 0, 7, 'dev', 1)
+VERSION = (0, 1, 0, 'dev', 0)
 
 git_match = "(?P<git_flag>git://)\S*#egg="\
             "(?P<egg>[a-zA-Z0-9-]*[a-zA-Z])"\
@@ -33,10 +33,13 @@ def read_requirements(requirements_file):
     git_regex = re.compile(git_match)
     with open(requirements_file, 'r') as f:
         for line in f.read().split('\n'):
-            #Skip empty spaces
+            # Skip empty spaces
             if not line:
                 continue
-            #Read the line for version info
+            # Ignore comments.
+            if line.lstrip().startswith("#"):
+                continue
+            # Read the line for version info
             r = git_regex.search(line)
             if not r:
                 r = egg_regex.search(line)
