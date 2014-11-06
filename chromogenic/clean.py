@@ -52,7 +52,7 @@ def remove_atmo_data(mounted_path, dry_run=False):
                     'var/log/atmo/atmo_init.log',
                     'var/log/atmo/atmo_init_full.log',
                     'var/log/atmo/shellinaboxd.log',
-                    'var/log/atmo/deploy.log',
+                    'var/log/atmo/*.log',
                     #Puppet
                     'var/lib/puppet/run/*.pid',
                     'etc/puppet/ssl', 
