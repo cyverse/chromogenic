@@ -39,6 +39,7 @@ from chromogenic.boot import add_grub
 from chromogenic.common import sed_delete_multi, sed_replace, sed_append
 from chromogenic.common import run_command, copy_disk, create_empty_image
 from chromogenic.common import mount_image, check_distro
+from chromogenic.clean import remove_ldap, reset_root_password
 from chromogenic.export import add_virtualbox_support
 
 logger = logging.getLogger(__name__)
@@ -48,57 +49,56 @@ class ImageManager(BaseDriver):
     Convienence class that can convert VMs into localized machines for
     Oracle Virtualbox
     """
-    def __init__(self, *args, **kwargs):
+    credentials = None
+    image_type = None
+
+    def __init__(self, image_type, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0:
             raise KeyError("Credentials missing in __init__. ")
+        self.image_type = image_type
+        self.credentials = kwargs
+
+
     def create_image(self, instance_id, image_name, *args, **kwargs):
         """
         """
         raise Exception("To create a virtualbox image,"
                 " pass the ImageManager class and arguments as the destination"
                 " fields in a migration")
+    def clean_hook(self, image_path, mount_point, *args, **kwags):
+        """
+        Run in 'mount_and_clean' method..
+        """
+        remove_ldap(mount_point)
+        reset_root_password(mount_point, 'atmosphere')
+        #Try to make it 'bootable'
+        if self.export_type not in ['vmdk','img','iso','qcow2']:
+            add_virtualbox_support(mount_point, image_path)
+
+    def _format_meta_name(self, name, owner, timestamp_str=None, creator='admin'):
+
+        if not timestamp_str:
+            timestamp_str = datetime.now().strftime('%m%d%Y_%H%M%S')
+        #Prepare name for imaging
+        name = name.replace(' ', '_').replace('/', '-')
+        meta_name = '%s_%s_%s_%s' % (creator, owner, name, timestamp_str)
+        return meta_name
+
     def parse_upload_args(self, **kwargs):
+        return self.parse_export_args(**kwargs)
+
+    def parse_export_args(self, **kwargs):
         return {
             'image_location': kwargs.get('download_location'),
             'image_name': kwargs.get('name'),
             'export_format': kwargs.get('format'),
             'keep_image': kwargs.get('keep_image',True),
+            'upload': kwargs.get('upload',False),
         }
 
-    def clean_hook(self, image_path, mount_point, *args, **kwags):
-        add_virtualbox_support(mount_point, image_path)
 
     def upload_image(self, image_location, image_name, export_format, *args, **kwargs):
-        """
-        Anything that the VBox Export Manager needs to add...
-        """
-        logger.info("Creating a bootable disk for: %s" % image_location)
-        image_location = self.copy_to_raw(image_location)
-        logger.info("Bootable disk location: %s" % image_location)
-        self.export_image(image_location, image_name, export_format)
-
-    def copy_to_raw(self, local_img_path, pad_size=1):
-        ext="raw"
-        #Image is now ready to be placed on a bootable drive, then install grub-legacy
-        image_size = self._get_file_size_gb(local_img_path)
-        local_raw_path = local_img_path +  "." + ext
-        create_empty_image(local_raw_path, ext,
-                           #TODO: Make extra size a configurable.
-                           image_size+pad_size,  # Add some empty space..
-                           bootable=True)
-        download_dir = os.path.dirname(local_img_path)
-        mount_point = os.path.join(download_dir,"mount_point/")
-        #copy the data
-        copy_disk(old_image=local_img_path,
-                  new_image=local_raw_path,
-                  download_dir=download_dir)
-        #Add grub.
-        #try:
-        #    mount_image(local_raw_path, mount_point)
-        #    add_grub(mount_point, local_raw_path)
-        #finally:
-        #    run_command(['umount', mount_point])
-        return local_raw_path
+        return self.export_image(**kwargs)
 
     def export_image(self, local_img_path, vm_name, export_format, upload=False, *args, **kwargs):
         #Convert the image if it was not passed as a kwarg
@@ -129,6 +129,29 @@ class ImageManager(BaseDriver):
         s3_keyname = 'vbox_export_%s_%s' % (instance_id,datetime.now().strftime('%Y%m%d_%H%M%S'))
         url = self._export_to_s3(s3_keyname, tarfile_name)
         return (md5sum, url)
+
+    def _copy_to_raw(self, local_img_path, pad_size=1):
+        ext="raw"
+        #Image is now ready to be placed on a bootable drive, then install grub-legacy
+        image_size = self._get_file_size_gb(local_img_path)
+        local_raw_path = local_img_path +  "." + ext
+        create_empty_image(local_raw_path, ext,
+                           #TODO: Make extra size a configurable.
+                           image_size+pad_size,  # Add some empty space..
+                           bootable=True)
+        download_dir = os.path.dirname(local_img_path)
+        mount_point = os.path.join(download_dir,"mount_point/")
+        #copy the data
+        copy_disk(old_image=local_img_path,
+                  new_image=local_raw_path,
+                  download_dir=download_dir)
+        #Add grub.
+        #try:
+        #    mount_image(local_raw_path, mount_point)
+        #    add_grub(mount_point, local_raw_path)
+        #finally:
+        #    run_command(['umount', mount_point])
+        return local_raw_path
 
     def _strip_uuid(self, createvm_output):
         import re

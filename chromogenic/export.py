@@ -10,6 +10,16 @@ from chromogenic.common import prepare_chroot_env, remove_chroot_env,\
 from chromogenic.common import sed_replace
 
 
+def export_image(src_managerCls, src_manager_creds, exportCls, **export_args):
+    """
+    Use the source manager to download a local image file
+    Then start the export by passing image file
+    """
+    download_manager = src_managerCls(**src_manager_creds)
+    download_kwargs = src_manager.download_image_args(**export_args)
+    download_location = src_manager.download_image(**download_kwargs)
+    return begin_export_image(download_location, exportCls, export_args)
+
 def export_instance(src_managerCls, src_manager_creds, exportCls, **export_args):
     """
     Use the source manager to download a local image file
@@ -19,6 +29,9 @@ def export_instance(src_managerCls, src_manager_creds, exportCls, **export_args)
     download_manager = src_managerCls(**src_manager_creds)
     download_kwargs = src_manager.download_instance_args(**export_args)
     download_location = src_manager.download_instance(**download_kwargs)
+    return begin_export_image(download_location, exportCls, export_args)
+
+def begin_export_image(download_location, exportCls, export_args):
     #Clean the image (Optional)
     download_dir = os.path.dirname(download_location)
     mount_point = os.path.join(download_dir, 'mount_point/')
@@ -30,18 +43,17 @@ def export_instance(src_managerCls, src_manager_creds, exportCls, **export_args)
                 mount_point,
                 **export_args)
     export_args['download_location'] = download_location
-    export_manager = migrationCls(**migration_creds)
+    export_manager = exportCls(**export_args)
     #Add required files/make necessary changes for export..
     export_manager.mount_and_clean(
             download_location,
             mount_point,
             **export_args)
-    image_location = export_manager.rebuild_disk(download_location, **export_args)
-    export_args['download_location'] = image_location
     #Start the export
-    #cleaned_export_args = export_manager.clean_export_args(**export_args)
-    export_file = export_manager.export(**cleaned_export_args)
-    return export_file
+    cleaned_export_args = export_manager.parse_upload_args(**export_args)
+    export_file_loc, export_file_hash = export_manager.upload_image(download_location, **cleaned_export_args)
+
+    return export_file_loc, export_file_hash
 
 def add_virtualbox_support(mounted_path, image_path):
     """
@@ -112,16 +124,6 @@ def remove_sensu(mounted_path):
         prepare_chroot_env(mounted_path)
         run_command(["/usr/sbin/chroot", mounted_path, 'yum',
                      'remove', '-qy', 'sensu'])
-    finally:
-        remove_chroot_env(mounted_path)
-
-def remove_ldap(mounted_path, new_password='atmosphere'):
-    try:
-        prepare_chroot_env(mounted_path)
-        run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
-                     "echo %s | passwd root --stdin" % new_password])
-        run_command(["/usr/sbin/chroot", mounted_path, 'yum',
-                     'remove', '-qy', 'openldap'])
     finally:
         remove_chroot_env(mounted_path)
 

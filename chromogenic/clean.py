@@ -149,3 +149,21 @@ def _perform_cleaning(mounted_path, rm_files=None,
     remove_line_in_files(remove_line_files, mounted_path, dry_run)
     replace_line_in_files(replace_line_files, mounted_path, dry_run)
     remove_multiline_in_files(multiline_delete_files, mounted_path, dry_run)
+
+def remove_ldap(mounted_path):
+    try:
+        prepare_chroot_env(mounted_path)
+        run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
+                     "echo %s | passwd root --stdin" % new_password])
+        run_command(["/usr/sbin/chroot", mounted_path, 'yum',
+                     'remove', '-qy', 'openldap'])
+    finally:
+        remove_chroot_env(mounted_path)
+
+def reset_root_password(mounted_path, new_password='atmosphere'):
+    try:
+        prepare_chroot_env(mounted_path)
+        run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
+                     "echo %s | passwd root --stdin" % new_password])
+    finally:
+        remove_chroot_env(mounted_path)
