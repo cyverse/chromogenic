@@ -7,8 +7,6 @@ from chromogenic.migrate import migrate_instance
 from chromogenic.export import export_image, export_instance
 from chromogenic.drivers.virtualbox import ImageManager as VBoxManager
 
-from django.conf import settings
-
 logger = logging.getLogger(__name__)
 
 @task(name='instance_export_task', queue="imaging", ignore_result=False)
@@ -17,11 +15,10 @@ def instance_export_task(instance_export):
     instance_export.status = 'processing'
     instance_export.save()
 
-    local_download_dir = settings.LOCAL_STORAGE
 
     (orig_managerCls, orig_creds,
      export_managerCls, export_creds) = instance_export.prepare_manager()
-    manager = VBoxManager(instance_export.export_format, **all_creds)
+    manager = VBoxManager(**export_creds)
 
     meta_name = manager._format_meta_name(
         instance_export.export_name,
@@ -41,11 +38,9 @@ def machine_export_task(machine_export):
     machine_export.status = 'processing'
     machine_export.save()
 
-    local_download_dir = settings.LOCAL_STORAGE
-
     (orig_managerCls, orig_creds,
      export_managerCls, export_creds) = machine_export.prepare_manager()
-    manager = VBoxManager(machine_export.export_format, **all_creds)
+    manager = VBoxManager(**export_creds)
 
     meta_name = manager._format_meta_name(
         machine_export.export_name,

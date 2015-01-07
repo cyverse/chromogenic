@@ -128,7 +128,7 @@ class ImageManager(BaseDriver):
             download_dir = os.path.dirname(download_location)
         return download_dir, download_location
 
-    def clean_path(image_name):
+    def clean_path(self, image_name):
         valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
         return ''.join(ch for ch in image_name if ch in valid_chars)
 
@@ -143,7 +143,7 @@ class ImageManager(BaseDriver):
         download_dir, download_location = self._parse_download_location(server, image_name, **kwargs)
         download_args = {
                 'snapshot_id': kwargs.get('snapshot_id'),
-                'instance_id': instance_id, 
+                'instance_id': instance_id,
                 'download_dir' : download_dir,
                 'download_location' : download_location,
         }
@@ -155,7 +155,7 @@ class ImageManager(BaseDriver):
             snapshot_id, download_location = self.download_snapshot(snapshot_id, download_location)
         else:
             snapshot_id, download_location = self._download_instance(instance_id, download_location)
-        return snapshot_id, download_location
+        return download_location
 
     def create_image(self, instance_id, image_name, *args, **kwargs):
         """
@@ -221,10 +221,10 @@ class ImageManager(BaseDriver):
     def _parse_args_upload_full_image(self, image_name,
                                       image_path, **kwargs):
         upload_args = {
-            'image_name':image_name, 
+            'image_name':image_name,
             'image_path':image_path,
-            'kernel_path':kwargs['kernel_path'], 
-            'ramdisk_path':kwargs['ramdisk_path'], 
+            'kernel_path':kwargs['kernel_path'],
+            'ramdisk_path':kwargs['ramdisk_path'],
             'is_public':kwargs.get('public',True),
         }
         return upload_args
@@ -236,8 +236,8 @@ class ImageManager(BaseDriver):
              'image_name':image_name,
              'disk_format':kwargs.get('disk_format', 'ami'),
              'container_format':kwargs.get('container_format','ami'),
-             'is_public':kwargs.get('public', True), 
-             'private_user_list':kwargs.get('private_user_list', []), 
+             'is_public':kwargs.get('public', True),
+             'private_user_list':kwargs.get('private_user_list', []),
         }
         if kwargs.get('kernel_id') and kwargs.get('ramdisk_id'):
             upload_args['properties'] = {
@@ -302,22 +302,35 @@ class ImageManager(BaseDriver):
         # Create our own sub-system inside the chosen directory
         # <dir>/<image_id>
         # This helps us keep track of ... everything
+        image_name = kwargs.get('image_name',image.name)
         download_location = os.path.join(
                 download_dir,
                 image_id,
-                "%s.%s" % (image.name, ext))
+                "%s.%s" % (image_name, ext))
         download_args = {
                 'snapshot_id': kwargs.get('snapshot_id'),
-                'instance_id': instance_id, 
+                'image_id': image_id,
+                'image_name': image_name,
+                'ext': ext,
                 'download_dir' : download_dir,
                 'download_location' : download_location,
         }
         return download_args
 
-    def download_image(self, image_id, download_location):
+    def download_image(self, image_id, download_location, **kwargs):
+        #SANITY CHECK: Use existing copies of the image when available.
+        if os.path.exists(download_location):
+            return download_location
+        return _perform_download(image_id, download_location)
+
+    def _perform_download(image_id, download_location):
+        """
+        This functions over-writes existing download_location
+        """
         image = self.get_image(image_id)
         #Step 2: Download local copy of snapshot
         logger.debug("Image downloading to %s" % download_location)
+        #Ensure that the directory exists prior to writing file.
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'w') as f:
@@ -368,21 +381,21 @@ class ImageManager(BaseDriver):
         """
         new_kernel = self.upload_local_image('eki-%s' % image_name,
                                              kernel_path,
-                                             container_format='aki', 
-                                             disk_format='aki', 
+                                             container_format='aki',
+                                             disk_format='aki',
                                              is_public=is_public)
         new_ramdisk = self.upload_local_image('eri-%s' % image_name,
                                              ramdisk_path,
-                                             container_format='ari', 
-                                             disk_format='ari', 
+                                             container_format='ari',
+                                             disk_format='ari',
                                              is_public=is_public)
         opts = {
             'kernel_id' : new_kernel,
             'ramdisk_id' : new_ramdisk
         }
-        new_image = self.upload_local_image(image_name, image_path, 
-                                             container_format='ami', 
-                                             disk_format='ami', 
+        new_image = self.upload_local_image(image_name, image_path,
+                                             container_format='ami',
+                                             disk_format='ami',
                                              is_public=is_public,
                                              properties=opts)
         for tenant_name in private_user_list:

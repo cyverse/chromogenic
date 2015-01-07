@@ -62,24 +62,26 @@ class BaseDriver():
         if not result:
             raise Exception("Encountered errors mounting the image: %s"
                     % image_path)
-        #Required cleaning
-        remove_user_data(mount_point)
-        remove_atmo_data(mount_point)
-        remove_vm_specific_data(mount_point)
+        try:
+            #Required cleaning
+            remove_user_data(mount_point)
+            remove_atmo_data(mount_point)
+            remove_vm_specific_data(mount_point)
 
-        #Filesystem cleaning (From within the image)
-        self.file_hook_cleaning(mount_point, **kwargs)
+            #Filesystem cleaning (From within the image)
+            self.file_hook_cleaning(mount_point, **kwargs)
 
-        #Driver specific cleaning
-        self.clean_hook(image_path, mount_point, *args, **kwargs)
+            #Driver specific cleaning
+            self.clean_hook(image_path, mount_point, *args, **kwargs)
 
-        #Required for atmosphere
-        atmo_required_files(mount_point)
+            #Required for atmosphere
+            atmo_required_files(mount_point)
 
-        #Don't forget to unmount!
-        run_command(['umount', mount_point])
-        if nbd_device:
-            run_command(['qemu-nbd', '-d', nbd_device])
+        finally:
+            #Don't forget to unmount!
+            run_command(['umount', mount_point])
+            if nbd_device:
+                run_command(['qemu-nbd', '-d', nbd_device])
         return
 
     def file_hook_cleaning(self, mounted_path, **kwargs):

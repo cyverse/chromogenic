@@ -50,12 +50,10 @@ class ImageManager(BaseDriver):
     Oracle Virtualbox
     """
     credentials = None
-    image_type = None
+    format_type = None
 
-    def __init__(self, image_type, *args, **kwargs):
-        if len(args) == 0 and len(kwargs) == 0:
-            raise KeyError("Credentials missing in __init__. ")
-        self.image_type = image_type
+    def __init__(self, format_type, *args, **kwargs):
+        self.format_type = format_type
         self.credentials = kwargs
 
 
@@ -71,8 +69,8 @@ class ImageManager(BaseDriver):
         """
         remove_ldap(mount_point)
         reset_root_password(mount_point, 'atmosphere')
-        #Try to make it 'bootable'
-        if self.export_type not in ['vmdk','img','iso','qcow2']:
+        #Try to make it 'bootable' container
+        if self.format_type in ['ova', 'ovf']:
             add_virtualbox_support(mount_point, image_path)
 
     def _format_meta_name(self, name, owner, timestamp_str=None, creator='admin'):
@@ -90,15 +88,15 @@ class ImageManager(BaseDriver):
     def parse_export_args(self, **kwargs):
         return {
             'image_location': kwargs.get('download_location'),
-            'image_name': kwargs.get('name'),
-            'export_format': kwargs.get('format'),
+            'image_name': kwargs.get('image_name'),
+            'export_format': kwargs.get('format_type'),
             'keep_image': kwargs.get('keep_image',True),
             'upload': kwargs.get('upload',False),
         }
 
 
     def upload_image(self, image_location, image_name, export_format, *args, **kwargs):
-        return self.export_image(**kwargs)
+        return self.export_image(image_location, image_name, export_format, **kwargs)
 
     def export_image(self, local_img_path, vm_name, export_format, upload=False, *args, **kwargs):
         #Convert the image if it was not passed as a kwarg
@@ -118,7 +116,7 @@ class ImageManager(BaseDriver):
             logger.info("Created VBox Appliance:%s" % appliance_path)
             completed_path = appliance_path
         if not upload:
-            return ("8b4c9186783cc74b05ce3864b2a3df74", completed_path)
+            return (None, completed_path)
 
         ##Archive/Compress/Send the export to S3
         md5sum = self._large_file_hash(completed_path)

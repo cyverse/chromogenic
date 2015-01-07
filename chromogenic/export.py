@@ -10,28 +10,29 @@ from chromogenic.common import prepare_chroot_env, remove_chroot_env,\
 from chromogenic.common import sed_replace
 
 
-def export_image(src_managerCls, src_manager_creds, exportCls, **export_args):
+def export_image(src_managerCls, src_manager_creds, exportCls, export_args):
     """
     Use the source manager to download a local image file
     Then start the export by passing image file
     """
     download_manager = src_managerCls(**src_manager_creds)
-    download_kwargs = src_manager.download_image_args(**export_args)
-    download_location = src_manager.download_image(**download_kwargs)
-    return begin_export_image(download_location, exportCls, export_args)
+    import ipdb;ipdb.set_trace()
+    download_kwargs = download_manager.download_image_args(**export_args)
+    download_location = download_manager.download_image(**download_kwargs)
+    return begin_export_image(download_location, download_manager, exportCls, export_args)
 
-def export_instance(src_managerCls, src_manager_creds, exportCls, **export_args):
+def export_instance(src_managerCls, src_manager_creds, exportCls, export_args):
     """
     Use the source manager to download a local image file
     Then start the export by passing the image to exportCls
     """
     #Download the image
     download_manager = src_managerCls(**src_manager_creds)
-    download_kwargs = src_manager.download_instance_args(**export_args)
-    download_location = src_manager.download_instance(**download_kwargs)
-    return begin_export_image(download_location, exportCls, export_args)
+    download_kwargs = download_manager.download_instance_args(**export_args)
+    download_location = download_manager.download_instance(**download_kwargs)
+    return begin_export_image(download_location, download_manager, exportCls, export_args)
 
-def begin_export_image(download_location, exportCls, export_args):
+def begin_export_image(download_location, src_manager, exportCls, export_args):
     #Clean the image (Optional)
     download_dir = os.path.dirname(download_location)
     mount_point = os.path.join(download_dir, 'mount_point/')
@@ -51,7 +52,7 @@ def begin_export_image(download_location, exportCls, export_args):
             **export_args)
     #Start the export
     cleaned_export_args = export_manager.parse_upload_args(**export_args)
-    export_file_loc, export_file_hash = export_manager.upload_image(download_location, **cleaned_export_args)
+    export_file_loc, export_file_hash = export_manager.upload_image(**cleaned_export_args)
 
     return export_file_loc, export_file_hash
 

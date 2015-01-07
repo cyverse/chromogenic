@@ -159,7 +159,7 @@ def _line_exists_in_file(needle, filepath):
             return True
     return False
 
-   
+
 def _mkinitrd_command(latest_rmdisk, rmdisk_version, distro='centos', preload=[], include=[]):
     preload.extend(['ahci'])
     include.extend(['virtio_pci', 'virtio_ring',
@@ -434,7 +434,7 @@ def _format_partition(disk, part, image_path, label=None):
     #The last word of the output is the device
     loop_dev = _losetup_extract_device(loop_str)
     #loop_dev == /dev/loop*
-    
+
     #Then mkfs
     unit_length = part['end'] - part['start']
     fs_size = unit_length * disk['unit_byte_size'] / BLOCK_SIZE
@@ -448,16 +448,29 @@ def _format_partition(disk, part, image_path, label=None):
 def _losetup_extract_device(loop_str):
     return loop_str.split(' ')[-1].strip()
 
+def _mount_by_file_metadata(image_path):
+    stdout, stderr = run_command(['file',image_path])
+    if 'qcow' in stdout.lower():
+        return mount_qcow(image_path, mount_point)
+    raise Exception("The type of image "
+            "could not be determined by output of 'file'")
 
 def _detect_and_mount_image(image_path, mount_point):
+    try:
+        return _mount_by_file_metadata(image_path)
+    except Exception, no_metadata:
+        pass
+    #Resort to guessing based on file extension
     file_name, file_ext= os.path.splitext(image_path)
     if file_ext == '.qcow' or file_ext == '.qcow2':
         return mount_qcow(image_path, mount_point)
     elif file_ext == '.raw' or file_ext == '.img':
-        result = mount_raw(image_path, mount_point)
+        #NOTE: a .img is NOT always a RAW...
+        #So we will attempt to mount this as a qcow if it failes
+        result = mount_raw(image_path, mount_point, attempt_qcow=True)
         return (result, None)
-    raise Exception("Encountered an unknown image type -- Extension : %s" %
-            file_ext)
+    raise Exception("The type of image "
+            "could not be determined based on the extension:%s" % file_ext)
 
 def check_mounted(mount_point):
     dev_location = None
@@ -619,11 +632,17 @@ def _get_next_nbd():
     raise Exception("Error: All /dev/nbd* devices are in use")
 
 
-def mount_raw(image_path, mount_point):
+def mount_raw(image_path, mount_point, attempt_qcow=False):
     out, err = run_command(['mount','-o','loop',image_path,mount_point])
     logger.debug("Mount Output:%s\nMount Error:%s" % (out, err))
     if 'specify the filesystem' in err:
-        return mount_raw_with_offsets(image_path, mount_point)
+        try:
+            return mount_raw_with_offsets(image_path, mount_point)
+        except Exception as not_raw_image:
+            if not attempt_qcow:
+                raise
+            logger.warn("Attempting to mount image file as qcow2")
+            return mount_qcow(image_path, mount_point)
     elif 'already mounted' in err and mount_point in err:
         #Already mounted in this location. Everything is fine.
         return True
@@ -633,6 +652,8 @@ def mount_raw(image_path, mount_point):
 
 def mount_raw_with_offsets(image_path, mount_point):
     fdisk_stats = fdisk_image(image_path)
+    if not fdisk_stats:
+        raise Exception("Cannot mount %s as a raw image. Is it a QCOW?" % image_path)
     partition = _select_partition(fdisk_stats['devices'])
     offset = fdisk_stats['disk']['unit_byte_size'] * partition['start']
     out, err = run_command(['mount', '-o', 'loop,offset=%s' %  offset,
@@ -672,7 +693,7 @@ def _mount_lvm(image_path, mount_point):
 def _select_partition(partitions):
     """
     TODO: Is there a way to pick the 'real' device out of the list?
-    Ideas: 
+    Ideas:
       System == 'Linux'
       Select if bootable
     """
@@ -757,7 +778,7 @@ def _parse_fdisk_stats(output):
 
 def _map_str_to_int(dictionary):
     """
-    Regex saves the variables as strings, 
+    Regex saves the variables as strings,
     but they are more useful as ints
     """
     for (k,v) in dictionary.items():

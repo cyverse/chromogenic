@@ -4,7 +4,8 @@ imaging/clean.py
 These functions are used to strip data from a VM before imaging occurs.
 
 """
-from chromogenic.common import check_mounted
+from chromogenic.common import check_mounted, prepare_chroot_env,\
+remove_chroot_env, run_command
 from chromogenic.common import remove_files, overwrite_files,\
                                    remove_line_in_files,\
                                    replace_line_in_files,\
@@ -150,11 +151,10 @@ def _perform_cleaning(mounted_path, rm_files=None,
     replace_line_in_files(replace_line_files, mounted_path, dry_run)
     remove_multiline_in_files(multiline_delete_files, mounted_path, dry_run)
 
+#Commands requiring a 'chroot'
 def remove_ldap(mounted_path):
     try:
         prepare_chroot_env(mounted_path)
-        run_command(["/usr/sbin/chroot", mounted_path, "/bin/bash", "-c",
-                     "echo %s | passwd root --stdin" % new_password])
         run_command(["/usr/sbin/chroot", mounted_path, 'yum',
                      'remove', '-qy', 'openldap'])
     finally:
