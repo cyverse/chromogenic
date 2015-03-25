@@ -276,7 +276,7 @@ class ImageManager(BaseDriver):
         if os.path.exists(download_location):
             logger.info("Download location exists. Looking for snapshot %s.." %
                         ss_prefix)
-            snapshot = self.find_image(ss_prefix, contains=True)
+            snapshot = self.find_images(ss_prefix, contains=True)
             if snapshot:
                 snapshot = snapshot[0]
                 logger.info("Found snapshot %s. "
@@ -553,7 +553,7 @@ class ImageManager(BaseDriver):
             image = self.get_image(image_id)
             return self.glance.image_members.list(image=image)
         if image_name:
-            image = self.find_image(image_name)
+            image = self.find_images(image_name)
             return self.glance.image_members.list(image=image)
 
     def share_image(self, image, tenant_name, can_share=False):
@@ -586,7 +586,13 @@ class ImageManager(BaseDriver):
         return self.get_image(image.id)
 
     def admin_list_images(self, **kwargs):
-        # Same call..
+        """
+        Treats 'is_public' as a 3-way switch:
+         None = Public and Private as seen by this account
+         True = Public images ONLY
+        False = Private images ONLY
+        """
+        # Same call.
         is_public = None
         if 'is_public' in kwargs:
             is_public = kwargs.pop('is_public')
@@ -603,13 +609,9 @@ class ImageManager(BaseDriver):
 
     #Finds
     def get_image(self, image_id):
-        found_images = [i for i in self.admin_list_images() if
-                i.id == image_id]
-        if not found_images:
-            return None
-        return found_images[0]
+        return self.glance.images.get(image_id)
 
-    def find_image(self, image_name, contains=False):
+    def find_images(self, image_name, contains=False):
         return [i for i in self.admin_list_images() if
                 ( i.name and i.name.lower() == image_name.lower() )
                 or (contains and i.name and image_name.lower() in i.name.lower())]
