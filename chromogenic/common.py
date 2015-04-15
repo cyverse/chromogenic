@@ -26,20 +26,27 @@ def inject_atmo_key(mounted_path):
     #Attempt to append.
     append_line_in_files(append_line_list, mounted_path)
 
-def inject_denyhosts_file(mounted_path):
+def inject_denyhosts_file(mounted_path, denyhosts_file="var/lib/denyhosts/allowed-hosts"):
+    """
+    IF image uses 'denyhosts' add these allowed hosts
+    """
+    test_denyhosts_file = os.path.join(mounted_path, denyhosts_file)
+    if not os.path.exists(test_denyhosts_file):
+        return
+
     #Create some whitelists for denyhosts:
     ALLOWED_HOST_LIST = [
-        ("128.196.172.*", "var/lib/denyhosts/allowed-hosts"),
-        ("128.196.142.*", "var/lib/denyhosts/allowed-hosts"),
-        ("128.196.64.*", "var/lib/denyhosts/allowed-hosts"),
-        ("128.196.65.*", "var/lib/denyhosts/allowed-hosts"),
-        ("128.196.38.*", "var/lib/denyhosts/allowed-hosts"),
-        ("150.135.78.*", "var/lib/denyhosts/allowed-hosts"),
-        ("150.135.93.*", "var/lib/denyhosts/allowed-hosts"),
+        ("128.196.172.*", denyhosts_file),
+        ("128.196.142.*", denyhosts_file),
+        ("128.196.64.*", denyhosts_file),
+        ("128.196.65.*", denyhosts_file),
+        ("128.196.38.*", denyhosts_file),
+        ("150.135.78.*", denyhosts_file),
+        ("150.135.93.*", denyhosts_file),
     ]
     text_to_write = "\n".join([rule[0] for rule in ALLOWED_HOST_LIST])
     if not create_file(
-            "var/lib/denyhosts/allowed-hosts", mounted_path, text_to_write):
+            denyhosts_file, mounted_path, text_to_write):
         #Create_file failed (File exists -- Append the list.)
         append_line_in_files(ALLOWED_HOST_LIST, mounted_path)
     hosts_allow_list = [("ALL: %s" % rule.replace("*",""), "etc/hosts.allow")
@@ -59,6 +66,7 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         #Bail before making the call
         logger.debug("Mock Command: %s" % cmd_str)
         return ('','')
+    logger.info("Run Command: %s" % cmd_str)
     try:
         if stdin:
             proc = subprocess.Popen(commandList, stdout=stdout, stderr=stderr,
@@ -448,16 +456,24 @@ def _format_partition(disk, part, image_path, label=None):
 def _losetup_extract_device(loop_str):
     return loop_str.split(' ')[-1].strip()
 
-def _mount_by_file_metadata(image_path):
+def _get_type_by_metadata(image_path):
+    #TODO: Add more logic here
     stdout, stderr = run_command(['file',image_path])
     if 'qcow' in stdout.lower():
+        return 'qcow'
+    else:
+        return 'img'
+
+def _mount_by_file_metadata(image_path, mount_point):
+    image_type = _get_type_by_metadata(image_path)
+    if 'qcow' in image_type:
         return mount_qcow(image_path, mount_point)
     raise Exception("The type of image "
             "could not be determined by output of 'file'")
 
 def _detect_and_mount_image(image_path, mount_point):
     try:
-        return _mount_by_file_metadata(image_path)
+        return _mount_by_file_metadata(image_path, mount_point)
     except Exception, no_metadata:
         pass
     #Resort to guessing based on file extension
@@ -495,14 +511,16 @@ def unmount_image(image_path, mount_point):
     device = check_mounted(mount_point)
     if not device:
         return ('', '%s is not mounted' % image_path)
-    #Check extension to determine how to unmount
-    file_name, file_ext= os.path.splitext(image_path)
-    if file_ext == '.qcow' or file_ext == '.qcow2':
+    # Rely on file, its smarter than a name.
+    file_type = _get_type_by_metadata(image_path)
+
+    if 'qcow' in file_type:
         return unmount_qcow(device)
-    elif file_ext == '.raw' or file_ext == '.img':
+    elif file_type in ['raw','img']:
         return unmount_raw(device)
-    raise Exception("Encountered an unknown image type -- Extension : %s" %
-            file_ext)
+    else:
+        raise Exception("Encountered an unknown image type -- Extension : %s"
+                        % file_ext)
 
 def unmount_raw(block_device):
     #Remove net block device
@@ -576,9 +594,10 @@ def mount_qcow(image_path, mount_point):
     #Check if filesystem has multiple partitions
     try:
         partition = _fdisk_get_partition(nbd_dev)
-        mount_from = partition['image_name']
+        mount_from = partition.get('image_name',nbd_dev)
     except Exception:
         mount_from = nbd_dev
+
     try:
         out, err = run_command(['mount', mount_from, mount_point])
         if err:
@@ -699,6 +718,7 @@ def _select_partition(partitions):
     """
     if not partitions:
         return None
+    import ipdb;ipdb.set_trace()
     partition = partitions[0]
     return partition
 

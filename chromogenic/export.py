@@ -10,51 +10,44 @@ from chromogenic.common import prepare_chroot_env, remove_chroot_env,\
 from chromogenic.common import sed_replace
 
 
-def export_image(src_managerCls, src_manager_creds, exportCls, export_args):
+def export_source(src_managerCls, src_manager_creds, export_kwargs):
     """
+    Machine/BootableVolume --> begin_export
     Use the source manager to download a local image file
     Then start the export by passing image file
     """
     download_manager = src_managerCls(**src_manager_creds)
-    import ipdb;ipdb.set_trace()
-    download_kwargs = download_manager.download_image_args(**export_args)
+    download_kwargs = download_manager.download_image_args(**export_kwargs)
     download_location = download_manager.download_image(**download_kwargs)
-    return begin_export_image(download_location, download_manager, exportCls, export_args)
+    return begin_export(download_location, download_manager, export_kwargs)
 
-def export_instance(src_managerCls, src_manager_creds, exportCls, export_args):
+def export_instance(src_managerCls, src_manager_creds, exportCls, export_kwargs):
     """
+    Instance --> Snapshot --> begin_export
     Use the source manager to download a local image file
     Then start the export by passing the image to exportCls
     """
     #Download the image
     download_manager = src_managerCls(**src_manager_creds)
-    download_kwargs = download_manager.download_instance_args(**export_args)
+    download_kwargs = download_manager.download_instance_args(**export_kwargs)
     download_location = download_manager.download_instance(**download_kwargs)
-    return begin_export_image(download_location, download_manager, exportCls, export_args)
+    return begin_export(download_location, download_manager, exportCls, export_kwargs)
 
-def begin_export_image(download_location, src_manager, exportCls, export_args):
+
+def begin_export(download_location, src_manager, export_kwargs):
     #Clean the image (Optional)
     download_dir = os.path.dirname(download_location)
     mount_point = os.path.join(download_dir, 'mount_point/')
     if not os.path.exists(mount_point):
         os.makedirs(mount_point)
-    if export_args.get('clean_image',True):
+    if export_kwargs.get('clean_image',True):
         src_manager.mount_and_clean(
                 download_location,
                 mount_point,
-                **export_args)
-    export_args['download_location'] = download_location
-    export_manager = exportCls(**export_args)
-    #Add required files/make necessary changes for export..
-    export_manager.mount_and_clean(
-            download_location,
-            mount_point,
-            **export_args)
-    #Start the export
-    cleaned_export_args = export_manager.parse_upload_args(**export_args)
-    export_file_loc, export_file_hash = export_manager.upload_image(**cleaned_export_args)
+                **export_kwargs)
+    export_kwargs['download_location'] = download_location
 
-    return export_file_loc, export_file_hash
+    return download_location
 
 def add_virtualbox_support(mounted_path, image_path):
     """

@@ -244,6 +244,11 @@ class ImageManager(BaseDriver):
                 'kernel_id' :  kwargs['kernel_id'],
                 'ramdisk_id' : kwargs['ramdisk_id']
             }
+        else:
+            #NOTE: Asserting that no kernel and no ramdisk means a bare disk + qcow2 container!
+            #TODO: Base the container format on `file`
+            upload_args['disk_format'] = 'bare'
+            upload_args['container_format'] = 'qcow2'
         return upload_args
 
     def download_snapshot(self, snapshot_id, download_location, *args, **kwargs):
@@ -291,26 +296,34 @@ class ImageManager(BaseDriver):
         return (snapshot.id,
                 self.download_image(snapshot.id, download_location))
 
-    def download_image_args(self, image_id, **kwargs):
+    def download_image_args(self, **kwargs):
         download_dir= kwargs.get('download_dir','/tmp')
+        if kwargs.get('image_id'):
+            source_id = kwargs['image_id']
+        elif kwargs.get('snapshot_id'):
+            source_id = kwargs['snapshot_id']
+        elif kwargs.get('volume_id'):
+            source_id = kwargs['volume_id']
+        else:
+            raise Exception("Expected a source type: snapshot_id, volume_id, image_id")
 
-        image = self.get_image(image_id)
+        image = self.get_image(source_id)
         if image.container_format == 'ami':
             ext = 'img'
         elif image.container_foramt == 'qcow':
             ext = 'qcow2'
         # Create our own sub-system inside the chosen directory
-        # <dir>/<image_id>
+        # <dir>/<source_id>
         # This helps us keep track of ... everything
-        image_name = kwargs.get('image_name',image.name)
+        source_name = kwargs.get('image_name',image.name)
         download_location = os.path.join(
                 download_dir,
-                image_id,
-                "%s.%s" % (image_name, ext))
+                source_id,
+                "%s.%s" % (source_name, ext))
         download_args = {
                 'snapshot_id': kwargs.get('snapshot_id'),
-                'image_id': image_id,
-                'image_name': image_name,
+                'image_id': source_id,
+                'image_name': source_name,
                 'ext': ext,
                 'download_dir' : download_dir,
                 'download_location' : download_location,
@@ -321,18 +334,19 @@ class ImageManager(BaseDriver):
         #SANITY CHECK: Use existing copies of the image when available.
         if os.path.exists(download_location):
             return download_location
-        return _perform_download(image_id, download_location)
+        return self._perform_download(image_id, download_location)
 
-    def _perform_download(image_id, download_location):
+    def _perform_download(self, image_id, download_location):
         """
         This functions over-writes existing download_location
         """
+        #Step 2: Download local copy of source image
         image = self.get_image(image_id)
-        #Step 2: Download local copy of snapshot
-        logger.debug("Image downloading to %s" % download_location)
         #Ensure that the directory exists prior to writing file.
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
+
+        logger.debug("Image downloading to %s" % download_location)
         with open(download_location,'w') as f:
             for chunk in image.data():
                 f.write(chunk)
