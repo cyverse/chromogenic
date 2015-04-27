@@ -245,10 +245,8 @@ class ImageManager(BaseDriver):
                 'ramdisk_id' : kwargs['ramdisk_id']
             }
         else:
-            #NOTE: Asserting that no kernel and no ramdisk means a bare disk + qcow2 container!
-            #TODO: Base the container format on `file`
-            upload_args['disk_format'] = 'bare'
-            upload_args['container_format'] = 'qcow2'
+            #NOTE: Asserting that no kernel and no ramdisk means a bare container!
+            upload_args['container_format'] = 'bare'
         return upload_args
 
     def download_snapshot(self, snapshot_id, download_location, *args, **kwargs):
