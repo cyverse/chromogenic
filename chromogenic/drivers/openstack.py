@@ -155,7 +155,7 @@ class ImageManager(BaseDriver):
             snapshot_id, download_location = self.download_snapshot(snapshot_id, download_location)
         else:
             snapshot_id, download_location = self._download_instance(instance_id, download_location)
-        return download_location
+        return snapshot_id, download_location
 
     def create_image(self, instance_id, image_name, *args, **kwargs):
         """
@@ -244,9 +244,6 @@ class ImageManager(BaseDriver):
                 'kernel_id' :  kwargs['kernel_id'],
                 'ramdisk_id' : kwargs['ramdisk_id']
             }
-        else:
-            #NOTE: Asserting that no kernel and no ramdisk means a bare container!
-            upload_args['container_format'] = 'bare'
         return upload_args
 
     def download_snapshot(self, snapshot_id, download_location, *args, **kwargs):
@@ -279,7 +276,7 @@ class ImageManager(BaseDriver):
         if os.path.exists(download_location):
             logger.info("Download location exists. Looking for snapshot %s.." %
                         ss_prefix)
-            snapshot = self.find_images(ss_prefix, contains=True)
+            snapshot = self.find_image(ss_prefix, contains=True)
             if snapshot:
                 snapshot = snapshot[0]
                 logger.info("Found snapshot %s. "
@@ -294,57 +291,40 @@ class ImageManager(BaseDriver):
         return (snapshot.id,
                 self.download_image(snapshot.id, download_location))
 
-    def download_image_args(self, **kwargs):
+    def download_image_args(self, image_id, **kwargs):
         download_dir= kwargs.get('download_dir','/tmp')
-        if kwargs.get('image_id'):
-            source_id = kwargs['image_id']
-        elif kwargs.get('snapshot_id'):
-            source_id = kwargs['snapshot_id']
-        elif kwargs.get('volume_id'):
-            source_id = kwargs['volume_id']
-        else:
-            raise Exception("Expected a source type: snapshot_id, volume_id, image_id")
 
-        image = self.get_image(source_id)
+        image = self.get_image(image_id)
         if image.container_format == 'ami':
             ext = 'img'
         elif image.container_foramt == 'qcow':
             ext = 'qcow2'
         # Create our own sub-system inside the chosen directory
-        # <dir>/<source_id>
+        # <dir>/<image_id>
         # This helps us keep track of ... everything
-        source_name = kwargs.get('image_name',image.name)
         download_location = os.path.join(
                 download_dir,
-                source_id,
-                "%s.%s" % (source_name, ext))
+                image_id,
+                "%s.%s" % (image.name, ext))
         download_args = {
                 'snapshot_id': kwargs.get('snapshot_id'),
-                'image_id': source_id,
-                'image_name': source_name,
-                'ext': ext,
+                'instance_id': instance_id,
                 'download_dir' : download_dir,
                 'download_location' : download_location,
         }
         return download_args
 
-    def download_image(self, image_id, download_location, **kwargs):
-        #SANITY CHECK: Use existing copies of the image when available.
+    def download_image(self, image_id, download_location):
         if os.path.exists(download_location):
             return download_location
         return self._perform_download(image_id, download_location)
 
     def _perform_download(self, image_id, download_location):
-        """
-        This functions over-writes existing download_location
-        """
-        #Step 2: Download local copy of source image
         image = self.get_image(image_id)
-        #Ensure that the directory exists prior to writing file.
+        #Step 2: Download local copy of snapshot
+        logger.debug("Image downloading to %s" % download_location)
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
-
-        logger.debug("Image downloading to %s" % download_location)
         with open(download_location,'w') as f:
             for chunk in image.data():
                 f.write(chunk)
@@ -460,12 +440,16 @@ class ImageManager(BaseDriver):
             snapshot = self.get_image(snapshot_id)
             if attempts >= 40:
                 break
-            if snapshot.status == 'active':
+            if snapshot and snapshot.status == 'active':
                 break
+            else:
+                sstatus = "missing"
             attempts += 1
-            logger.debug("Snapshot %s in non-active state %s" % (snapshot_id, snapshot.status))
+            logger.debug("Snapshot %s in non-active state %s" % (snapshot_id, sstatus))
             logger.debug("Attempt:%s, wait 1 minute" % attempts)
             time.sleep(60)
+        if not snapshot:
+            raise Exception("Create_snapshot Failed. No ImageID %s" % snapshot_id)
         if snapshot.status != 'active':
             raise Exception("Create_snapshot timeout. Operation exceeded 40m")
         return snapshot
@@ -565,7 +549,7 @@ class ImageManager(BaseDriver):
             image = self.get_image(image_id)
             return self.glance.image_members.list(image=image)
         if image_name:
-            image = self.find_images(image_name)
+            image = self.find_image(image_name)
             return self.glance.image_members.list(image=image)
 
     def share_image(self, image, tenant_name, can_share=False):
@@ -600,11 +584,11 @@ class ImageManager(BaseDriver):
     def admin_list_images(self, **kwargs):
         """
         Treats 'is_public' as a 3-way switch:
-         None = Public and Private as seen by this account
-         True = Public images ONLY
-        False = Private images ONLY
+          None = Public and Private as seen by this account
+          True = Public images ONLY
+         False = Private images ONLY
         """
-        # Same call.
+        # Same call..
         is_public = None
         if 'is_public' in kwargs:
             is_public = kwargs.pop('is_public')
@@ -621,9 +605,12 @@ class ImageManager(BaseDriver):
 
     #Finds
     def get_image(self, image_id):
-        return self.glance.images.get(image_id)
+        self.glance.images.get(image_id)
 
     def find_images(self, image_name, contains=False):
+        return self.find_image(image_name, contains=contains)
+
+    def find_image(self, image_name, contains=False):
         return [i for i in self.admin_list_images() if
                 ( i.name and i.name.lower() == image_name.lower() )
                 or (contains and i.name and image_name.lower() in i.name.lower())]
