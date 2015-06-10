@@ -418,7 +418,7 @@ class ImageManager(BaseDriver):
 
     # Public methods that are OPENSTACK specific
 
-    def create_snapshot(self, instance_id, name, delay=False, **kwargs):
+    def create_snapshot(self, instance_id, name, delay=False, timeout=160, **kwargs):
         """
         NOTE: It is recommended that you 'prepare the snapshot' before creating
         an image by running 'sync' and 'freeze' on the instance. See
@@ -438,12 +438,14 @@ class ImageManager(BaseDriver):
         attempts = 0
         while True:
             snapshot = self.get_image(snapshot_id)
-            if attempts >= 40:
+            if attempts >= timeout:
                 break
-            if snapshot and snapshot.status == 'active':
-                break
+            if snapshot:
+                sstatus = snapshot.status
             else:
-                sstatus = "missing"
+                sstatus = "Not Found"
+            if sstatus == 'active':
+                break
             attempts += 1
             logger.debug("Snapshot %s in non-active state %s" % (snapshot_id, sstatus))
             logger.debug("Attempt:%s, wait 1 minute" % attempts)
@@ -451,7 +453,7 @@ class ImageManager(BaseDriver):
         if not snapshot:
             raise Exception("Create_snapshot Failed. No ImageID %s" % snapshot_id)
         if snapshot.status != 'active':
-            raise Exception("Create_snapshot timeout. Operation exceeded 40m")
+            raise Exception("Create_snapshot timeout. Operation exceeded %s min" % timeout)
         return snapshot
 
 
