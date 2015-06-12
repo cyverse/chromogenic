@@ -418,7 +418,7 @@ class ImageManager(BaseDriver):
 
     # Public methods that are OPENSTACK specific
 
-    def create_snapshot(self, instance_id, name, delay=False, timeout=160, **kwargs):
+    def create_snapshot(self, instance_id, name, delay=False, **kwargs):
         """
         NOTE: It is recommended that you 'prepare the snapshot' before creating
         an image by running 'sync' and 'freeze' on the instance. See
@@ -433,28 +433,37 @@ class ImageManager(BaseDriver):
         snapshot = self.get_image(snapshot_id)
         if not delay:
             return snapshot
+        #NOTE: Default behavior returns snapshot upon creation receipt.
+        # In some cases (celery) it is better to wait until snapshot is completed.
+        return retrieve_snapshot(snapshot.id)
+
+    def retrieve_snapshot(self, snapshot_id, timeout=160):
         #Step 2: Wait (Exponentially) until status moves from:
         # queued --> saving --> active
         attempts = 0
         while True:
             snapshot = self.get_image(snapshot_id)
-            if attempts >= timeout:
-                break
             if snapshot:
                 sstatus = snapshot.status
             else:
-                sstatus = "Not Found"
-            if sstatus == 'active':
+                sstatus = "missing"
+
+            if attempts >= timeout:
                 break
+            if sstatus in ["active","failed"]:
+                break
+
             attempts += 1
             logger.debug("Snapshot %s in non-active state %s" % (snapshot_id, sstatus))
             logger.debug("Attempt:%s, wait 1 minute" % attempts)
             time.sleep(60)
         if not snapshot:
-            raise Exception("Create_snapshot Failed. No ImageID %s" % snapshot_id)
-        if snapshot.status != 'active':
-            raise Exception("Create_snapshot timeout. Operation exceeded %s min" % timeout)
+            raise Exception("Retrieve_snapshot Failed. No ImageID %s" % snapshot_id)
+        if sstatus not in 'active':
+            logger.warn("Retrieve_snapshot timeout exceeded %sm. Final status was %s" % (timeout,sstatus))
+
         return snapshot
+
 
 
     # Private methods and helpers
