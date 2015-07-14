@@ -30,6 +30,10 @@ def inject_denyhosts_file(mounted_path, denyhosts_file="var/lib/denyhosts/allowe
     """
     IF image uses 'denyhosts' add these allowed hosts
     """
+    denyhosts_folder = os.path.dirname(denyhosts_file)
+    #Skip denyhost injection if denyhost is not installed!
+    if not os.path.isdir(denyhosts_folder):
+        return
     test_denyhosts_file = os.path.join(mounted_path, denyhosts_file)
     if not os.path.exists(test_denyhosts_file):
         return
@@ -587,6 +591,29 @@ def fsck_qcow(image_path):
     finally:
         run_command(['qemu-nbd', '-d', nbd_dev])
 
+
+def _get_parted_fs_type(partition_path):
+    out, err = run_command(['parted', '-sm', partition_path, 'print'])
+    if not out or err:
+        return None
+    elif 'Input/output error' in out:
+        return None
+    elif 'xfs' in out:
+        return 'xfs'
+    elif 'ext3' in out:
+        return 'ext3'
+    else:
+        full_out, _ = run_command(['parted', '-sm', partition_path, 'print'])
+        raise Exception("Received 'parted output' of %s -"
+                        "- Could not determine fs_type" % full_out)
+
+
+def _init_xfs(partition_path):
+    """
+    Given an XFS partition, 'intialize' so its ready for a 'normal mount'
+    """
+    run_command(['xfs_admin',partition_path])
+
 def mount_qcow(image_path, mount_point):
     nbd_dev = _get_next_nbd()
     #Mount disk to /dev/nbd*
@@ -595,19 +622,22 @@ def mount_qcow(image_path, mount_point):
     try:
         partition = _fdisk_get_partition(nbd_dev)
         mount_from = partition.get('image_name',nbd_dev)
+        fs_type = _get_parted_fs_type(partition)
     except Exception:
         mount_from = nbd_dev
-
+        fs_type = None
+    if fs_type == 'xfs':
+        _init_xfs()
     try:
         out, err = run_command(['mount', mount_from, mount_point])
         if err:
             raise Exception("Failed to mount QCOW. STDERR: %s" % err)
-        #The qcow image has been mounted
+        # The qcow image has been mounted
         return True, nbd_dev
     except Exception:
         logger.exception('Could not mount QCOW image:%s to device:%s'
-                % (image_path, nbd_dev))
-        #Run only on exception.. We want to keep the image mounted!
+                         % (image_path, nbd_dev))
+        # Run only on exception.. We want to keep the image mounted!
         run_command(['qemu-nbd', '-d', nbd_dev])
         return False, None
 
@@ -718,7 +748,6 @@ def _select_partition(partitions):
     """
     if not partitions:
         return None
-    import ipdb;ipdb.set_trace()
     partition = partitions[0]
     return partition
 
