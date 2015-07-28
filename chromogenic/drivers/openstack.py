@@ -435,7 +435,7 @@ class ImageManager(BaseDriver):
             return snapshot
         #NOTE: Default behavior returns snapshot upon creation receipt.
         # In some cases (celery) it is better to wait until snapshot is completed.
-        return retrieve_snapshot(snapshot.id)
+        return self.retrieve_snapshot(snapshot_id)
 
     def retrieve_snapshot(self, snapshot_id, timeout=160):
         #Step 2: Wait (Exponentially) until status moves from:
@@ -616,7 +616,7 @@ class ImageManager(BaseDriver):
 
     #Finds
     def get_image(self, image_id):
-        self.glance.images.get(image_id)
+        return self.glance.images.get(image_id)
 
     def find_images(self, image_name, contains=False):
         return self.find_image(image_name, contains=contains)
