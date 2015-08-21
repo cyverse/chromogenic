@@ -622,12 +622,12 @@ def mount_qcow(image_path, mount_point):
     try:
         partition = _fdisk_get_partition(nbd_dev)
         mount_from = partition.get('image_name',nbd_dev)
-        fs_type = _get_parted_fs_type(partition)
+        fs_type = _get_parted_fs_type(mount_from)
     except Exception:
         mount_from = nbd_dev
         fs_type = None
     if fs_type == 'xfs':
-        _init_xfs()
+        _init_xfs(mount_from)
     try:
         out, err = run_command(['mount', mount_from, mount_point])
         if err:

@@ -182,8 +182,8 @@ class ImageManager(BaseDriver):
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
         upload_args = self.parse_upload_args(image_name, download_location,
-                                             kernel_id=snapshot.properties['kernel_id'],
-                                             ramdisk_id=snapshot.properties['ramdisk_id'],
+                                             kernel_id=snapshot.properties.get('kernel_id'),
+                                             ramdisk_id=snapshot.properties.get('ramdisk_id'),
                                              disk_format=snapshot.disk_format,
                                              container_format=snapshot.container_format,
                                              **kwargs)
@@ -272,7 +272,8 @@ class ImageManager(BaseDriver):
         #Step 2: Create local path for copying image
         server = self.get_server(instance_id)
         tenant = find(self.keystone.tenants, id=server.tenant_id)
-        ss_prefix = 'ChromoSnapShot_%s' % instance_id
+        ss_prefix = kwargs.get('ss_prefix',
+                'ChromoSnapShot_%s' % instance_id) #Legacy format
         if os.path.exists(download_location):
             logger.info("Download location exists. Looking for snapshot %s.." %
                         ss_prefix)
@@ -283,7 +284,7 @@ class ImageManager(BaseDriver):
                             "Download skipped for local copy"
                             % snapshot.id)
                 return (snapshot.id, download_location)
-        now = datetime.datetime.now() # Pytz datetime
+        now = kwargs.get('timestamp',datetime.datetime.now()) # Pytz datetime
         now_str = now.strftime('%Y-%m-%d_%H:%M:%S')
         ss_name = '%s_%s' % (ss_prefix, now_str)
         meta_data = {}
