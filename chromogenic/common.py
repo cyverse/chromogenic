@@ -602,6 +602,8 @@ def _get_parted_fs_type(partition_path):
         return 'xfs'
     elif 'ext3' in out:
         return 'ext3'
+    elif 'ext4' in out:
+        return 'ext4'
     else:
         full_out, _ = run_command(['parted', '-sm', partition_path, 'print'])
         raise Exception("Received 'parted output' of %s -"
@@ -623,7 +625,8 @@ def mount_qcow(image_path, mount_point):
         partition = _fdisk_get_partition(nbd_dev)
         mount_from = partition.get('image_name',nbd_dev)
         fs_type = _get_parted_fs_type(mount_from)
-    except Exception:
+    except Exception as e:
+        logger.exception(e)
         mount_from = nbd_dev
         fs_type = None
     if fs_type == 'xfs':
