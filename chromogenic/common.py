@@ -15,14 +15,27 @@ def atmo_required_files(mounted_path):
     inject_atmo_key(mounted_path)
     inject_denyhosts_file(mounted_path)
 
+def touch_file(file_path):
+    created_before = os.path.isfile(file_path)
+    logger.info(
+        "%s file: %s"
+        % ("Touch new" if created_before else "Touch existing",
+           file_path))
+    with open(file_path, 'a'):
+        os.utime(file_path, None)
+
 def inject_atmo_key(mounted_path):
-    append_line_list = [
-        ("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVVkgGS8QwHet+aF401l6MLD206yfE76Pe8UAbWhKdE1155IHyDumS5226cTf+5/1zqyzlGwvHJMhzJEztImJghXAWMw7AOzDUYmIpGGhnvmVE1mJN6Iy3aRDyJOcPOqd1ZGbywzzQioiYjoxKa/HT5QN5F/4Mdsqn3mgFdWgXxmY7X3fZGphk5vOK/8J8tSpy4dLIBI+WRrN4ZR7IOrvzkZght/YjtvgPhJqZzgEzcTP4BMpUNWlOFL95Usk3lzqJTBDzlM71ivaHQ3OqxrjpThMSGoQhedupsx8FrmBvOo1OxjfIj0/hIEtjH9FE2lc5GZBy7B1EuqXApR7Vopa3 atmo@iplantcollaborative.org\n","root/.ssh/authorized_keys"),
-    ]
     #Ensure SSH Directory exists
     ssh_dir = os.path.join(mounted_path,"root/.ssh/")
     if not os.path.isdir(ssh_dir):
         os.makedirs(ssh_dir)
+    auth_key_file = "root/.ssh/authorized_keys"
+    mounted_auth_key_file = os.path.join(mounted_path, "root/.ssh/authorized_keys")
+    if not os.path.isfile(mounted_auth_key_file):
+        touch_file(mounted_auth_key_file)
+    append_line_list = [
+        ("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVVkgGS8QwHet+aF401l6MLD206yfE76Pe8UAbWhKdE1155IHyDumS5226cTf+5/1zqyzlGwvHJMhzJEztImJghXAWMw7AOzDUYmIpGGhnvmVE1mJN6Iy3aRDyJOcPOqd1ZGbywzzQioiYjoxKa/HT5QN5F/4Mdsqn3mgFdWgXxmY7X3fZGphk5vOK/8J8tSpy4dLIBI+WRrN4ZR7IOrvzkZght/YjtvgPhJqZzgEzcTP4BMpUNWlOFL95Usk3lzqJTBDzlM71ivaHQ3OqxrjpThMSGoQhedupsx8FrmBvOo1OxjfIj0/hIEtjH9FE2lc5GZBy7B1EuqXApR7Vopa3 atmo@iplantcollaborative.org\n",auth_key_file),
+    ]
     #Attempt to append.
     append_line_in_files(append_line_list, mounted_path)
 
@@ -89,7 +102,7 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
 
 def overwrite_file(filepath, dry_run=False):
     if not os.path.exists(filepath):
-        logger.info("Cannot copy /dev/null to non-existent file: %s" %
+        logger.debug("Cannot copy /dev/null to non-existent file: %s" %
                 filepath)
         return
     cmd_list = ['/bin/cp', '-f', '/dev/null', '%s' % filepath]
@@ -113,7 +126,7 @@ def wildcard_remove(wildcard_path, dry_run=False):
     """
     Expand the wildcard to match all files, delete each one.
     """
-    logger.debug("Wildcard remove: %s" % wildcard_path)
+    logger.info("Wildcard remove: %s" % wildcard_path)
     glob_list = glob.glob(wildcard_path)
     if glob_list:
         for filename in glob_list:
@@ -126,7 +139,7 @@ BE VERY CAREFUL USING THESE -- YOU HAVE BEEN WARNED!
 """
 def sed_delete_multi(from_here,to_here,filepath, dry_run=False):
     if not os.path.exists(filepath):
-        logger.info("File not found: %s Cannot delete lines" % filepath)
+        logger.warn("File not found: %s Cannot delete lines" % filepath)
         return
     cmd_list = ["/bin/sed", "-i", "/%s/,/%s/d" % (from_here, to_here),
                 filepath]
@@ -134,21 +147,21 @@ def sed_delete_multi(from_here,to_here,filepath, dry_run=False):
 
 def sed_replace(find,replace,filepath, dry_run=False):
     if not os.path.exists(filepath):
-        logger.info("File not found: %s Cannot replace lines" % filepath)
+        logger.warn("File not found: %s Cannot replace lines" % filepath)
         return
     cmd_list = ["/bin/sed", "-i", "s/%s/%s/" % (find,replace), filepath]
     run_command(cmd_list, dry_run=dry_run)
 
 def sed_delete_one(remove_string, filepath, dry_run=False):
     if not os.path.exists(filepath):
-        logger.info("File not found: %s Cannot delete lines" % filepath)
+        logger.warn("File not found: %s Cannot delete lines" % filepath)
         return
     cmd_list = ["/bin/sed", "-i", "/%s/d" % remove_string, filepath]
     run_command(cmd_list, dry_run=dry_run)
 
 def sed_append(append_string, filepath, dry_run=False):
     if not os.path.exists(filepath):
-        logger.info("File not found: %s Cannot append lines" % filepath)
+        logger.warn("File not found: %s Cannot append lines" % filepath)
         return
     if _line_exists_in_file(append_string, filepath):
         return
@@ -157,7 +170,7 @@ def sed_append(append_string, filepath, dry_run=False):
 
 def sed_prepend(prepend_string, filepath, dry_run=False):
     if not os.path.exists(filepath):
-        logger.info("File not found: %s Cannot prepend lines" % filepath)
+        logger.warn("File not found: %s Cannot prepend lines" % filepath)
         return
     if _line_exists_in_file(prepend_string, filepath):
         return
