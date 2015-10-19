@@ -145,6 +145,7 @@ def _perform_cleaning(mounted_path, rm_files=None,
     Runs the commands to perform all cleaning operations.
     For more information see the specific function
     """
+    apt_uninstall(mounted_path, ['avahi-daemon'])
     remove_files(rm_files, mounted_path, dry_run)
     overwrite_files(overwrite_list, mounted_path, dry_run)
     remove_line_in_files(remove_line_files, mounted_path, dry_run)
@@ -152,6 +153,18 @@ def _perform_cleaning(mounted_path, rm_files=None,
     remove_multiline_in_files(multiline_delete_files, mounted_path, dry_run)
 
 #Commands requiring a 'chroot'
+def apt_uninstall(mounted_path, uninstall_list):
+    distro = check_distro(mounted_path)
+    if 'ubuntu' not in distro.lower():
+        return
+    try:
+        prepare_chroot_env(mounted_path)
+        for uninstall_item in uninstall_list:
+            run_command(["/usr/sbin/chroot", mounted_path,
+                         'apt-get', '-qy', 'purge', uninstall_item])
+    finally:
+        remove_chroot_env(mounted_path)
+
 def remove_ldap(mounted_path):
     try:
         prepare_chroot_env(mounted_path)
