@@ -135,8 +135,8 @@ class ImageManager(BaseDriver):
     def download_instance_args(self, instance_id, image_name='', **kwargs):
         #Step 0: Is the instance alive?
         server = self.get_server(instance_id)
-        if not server:
-            raise Exception("Instance %s does not exist" % instance_id)
+        if not server and not kwargs.get('download_location'):
+            raise Exception("Instance %s does not exist -- download_location required to continue!" % instance_id)
 
 
         #Set download location
@@ -271,7 +271,10 @@ class ImageManager(BaseDriver):
         """
         #Step 2: Create local path for copying image
         server = self.get_server(instance_id)
-        tenant = find(self.keystone.tenants, id=server.tenant_id)
+        if server:
+            tenant = find(self.keystone.tenants, id=server.tenant_id)
+        else:
+            tenant = None
         ss_prefix = kwargs.get('ss_prefix',
                 'ChromoSnapShot_%s' % instance_id) #Legacy format
         if os.path.exists(download_location):
