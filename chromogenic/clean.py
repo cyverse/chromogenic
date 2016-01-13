@@ -125,6 +125,7 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
         ("HWADDR=*", "", "etc/sysconfig/network-scripts/ifcfg-eth0"),
         ("MACADDR=*", "", "etc/sysconfig/network-scripts/ifcfg-eth0"),
         ("SELINUX=.*", "SELINUX=disabled", "etc/syslinux/selinux"),
+        ("SELINUX=.*", "SELINUX=disabled", "etc/selinux/config"),
     ]
     multiline_delete_files = [
         #('delete_from', 'delete_to', 'replace_where')
