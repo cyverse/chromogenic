@@ -500,6 +500,13 @@ class ImageManager(BaseDriver):
         creds['router_name'] = kwargs.get('router_name')
         creds['admin_url'] = kwargs.get('admin_url')
         creds['ex_force_auth_url'] = kwargs.get('auth_url')
+        if 'ex_force_auth_version' not in kwargs and 'v3' in kwargs.get('auth_url',''):
+            creds['ex_force_auth_version'] = '3.x_password'
+        elif 'ex_force_auth_version' not in kwargs and 'v2.0' in kwargs.get('auth_url',''):
+            creds['ex_force_auth_version'] = '2.0_password'
+        else:
+            creds['ex_force_auth_version'] = '2.0_password' # Default, explicitly stated.
+
         return creds
 
     def _build_admin_driver(self, **kwargs):

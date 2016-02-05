@@ -58,6 +58,7 @@ class BaseDriver():
         #FSCK the image, FIRST!
         fsck_image(image_path)
         #Mount the directory
+        #NOTE: the 'nbd_device' is not being properly passed through here. As a result, the FINAL umount does not use `qemu-nbd -d`
         result, nbd_device = mount_image(image_path, mount_point)
         if not result:
             raise Exception("Encountered errors mounting the image: %s"
