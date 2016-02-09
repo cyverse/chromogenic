@@ -97,14 +97,20 @@ class ImageManager(BaseDriver):
             creds['password'] = secret
         if tenant and not creds.get('tenant_name'):
             creds['tenant_name'] = tenant
-        creds['auth_url'] = creds['auth_url'].replace('/tokens','')
+        if '/v2.0' in creds['auth_url']:
+            creds['auth_url'] = creds['auth_url'].replace('/tokens','')
+        else:
+            creds['auth_url'] += "/v2.0/"
         return creds
 
     def __init__(self, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0:
             raise KeyError("Credentials missing in __init__. ")
 
-        self.admin_driver = self._build_admin_driver(**kwargs)
+        admin_args = kwargs.copy()
+        if '/v2.0/tokens' not in admin_args['auth_url']:
+             admin_args['auth_url'] += '/v2.0/tokens'
+        self.admin_driver = self._build_admin_driver(**admin_args)
         creds = self._image_creds_convert(*args, **kwargs)
         (self.keystone,\
             self.nova,\
@@ -526,7 +532,10 @@ class ImageManager(BaseDriver):
         """
         Can be used to establish a new connection for all clients
         """
-        keystone = _connect_to_keystone(*args, **kwargs)
+        ks_args = kwargs.copy()
+        ks_args['auth_url'] = ks_args['auth_url'].replace('/v2.0','/v3').replace('/tokens','')
+        ks_args['version'] = 'v3'
+        keystone = _connect_to_keystone(*args, **ks_args)
         nova = _connect_to_nova(*args, **kwargs)
         glance = _connect_to_glance(keystone, *args, **kwargs)
         return (keystone, nova, glance)
