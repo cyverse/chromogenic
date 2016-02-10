@@ -574,14 +574,14 @@ class ImageManager(BaseDriver):
         If True, allow that tenant to share image with others
         """
         if tenant_name:
+            raise KeyError("Key tenant_name has been deprecated in latest version of glance.image_members -- If you need this -- Contact a programmer!")
             tenant = self.find_tenant(tenant_name)
             return self.glance.image_members.list(member=tenant)
         if image_id:
-            image = self.get_image(image_id)
-            return self.glance.image_members.list(image=image)
+            return self.glance.image_members.list(image_id)
         if image_name:
             image = self.find_image(image_name)
-            return self.glance.image_members.list(image=image)
+            return self.glance.image_members.list(image_id=image.id)
 
     def share_image(self, image, tenant_name, can_share=False):
         """
