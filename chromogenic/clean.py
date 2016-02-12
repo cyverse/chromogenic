@@ -5,7 +5,7 @@ These functions are used to strip data from a VM before imaging occurs.
 
 """
 from chromogenic.common import check_mounted, prepare_chroot_env,\
-remove_chroot_env, run_command
+remove_chroot_env, run_command, check_distro
 from chromogenic.common import remove_files, overwrite_files,\
                                    remove_line_in_files,\
                                    replace_line_in_files,\
