@@ -49,6 +49,16 @@ class ImageManager(BaseDriver):
     nova = None
     keystone = None
 
+    def keystone_tenants_method(self):
+        """
+        Pick appropriate version of keystone based on credentials
+        """
+        identity_version = self.creds.get('identity_version', 'v3')
+
+        if '3' in identity_version or 3 in identity_version:
+            return self.keystone.projects
+        return self.keystone.tenants
+
     @classmethod
     def lc_driver_init(self, lc_driver, *args, **kwargs):
         lc_driver_args = {
@@ -111,10 +121,10 @@ class ImageManager(BaseDriver):
         if '/v2.0/tokens' not in admin_args['auth_url']:
              admin_args['auth_url'] += '/v2.0/tokens'
         self.admin_driver = self._build_admin_driver(**admin_args)
-        creds = self._image_creds_convert(*args, **kwargs)
+        self.creds = self._image_creds_convert(*args, **kwargs)
         (self.keystone,\
             self.nova,\
-            self.glance) = self._new_connection(*args, **creds)
+            self.glance) = self._new_connection(*args, **self.creds)
 
     def _parse_download_location(self, server, image_name, **kwargs):
         download_location = kwargs.get('download_location')
@@ -124,7 +134,7 @@ class ImageManager(BaseDriver):
                             "'download_dir' or 'download_location'")
         elif not download_location:
             #Use download dir & tenant_name to keep filesystem order
-            tenant = find(self.keystone.tenants, id=server.tenant_id)
+            tenant = find(self.keystone_tenants_method(), id=server.tenant_id)
             local_user_dir = os.path.join(download_dir, tenant.name)
             if not os.path.exists(os.path.dirname(local_user_dir)):
                 os.makedirs(local_user_dir)
@@ -278,7 +288,7 @@ class ImageManager(BaseDriver):
         #Step 2: Create local path for copying image
         server = self.get_server(instance_id)
         if server:
-            tenant = find(self.keystone.tenants, id=server.tenant_id)
+            tenant = find(self.keystone_tenants_method(), id=server.tenant_id)
         else:
             tenant = None
         ss_prefix = kwargs.get('ss_prefix',
@@ -597,7 +607,7 @@ class ImageManager(BaseDriver):
                     image, tenant.id, can_share=can_share)
 
     def unshare_image(self, image, tenant_name):
-        tenant = find(self.keystone.tenants, name=tenant_name)
+        tenant = find(self.keystone_tenants_method(), name=tenant_name)
         return self.glance.image_members.delete(image.id, tenant.id)
 
     #Alternative image uploading
@@ -648,7 +658,7 @@ class ImageManager(BaseDriver):
 
     def find_tenant(self, tenant_name):
         try:
-            tenant = find(self.keystone.tenants, name=tenant_name)
+            tenant = find(self.keystone_tenants_method(), name=tenant_name)
             return tenant
         except NotFound:
             return None
