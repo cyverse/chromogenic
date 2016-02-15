@@ -639,6 +639,7 @@ class ImageManager(BaseDriver):
 
     #Lists
     def update_image(self, image, **kwargs):
+        image_update = 'v3'
         if hasattr(image, 'properties'):  # Treated as an obj.
             properties = image.properties
             image_update = 'v2'
@@ -647,7 +648,10 @@ class ImageManager(BaseDriver):
             properties = dict(image.items())
 
         if 'properties' not in kwargs:
-            properties = image.properties
+            if image_update == 'v2':
+                properties = image.properties
+            else:
+                properties = image.get('properties')
         else:
             properties = kwargs.pop("properties")
 
