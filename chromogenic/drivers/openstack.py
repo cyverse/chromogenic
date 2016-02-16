@@ -35,6 +35,7 @@ from chromogenic.clean import remove_user_data, remove_atmo_data,\
 from chromogenic.common import unmount_image, mount_image, remove_files,\
                                   get_latest_ramdisk
 from keystoneclient.exceptions import NotFound
+from glanceclient import exc as glance_exception
 
 logger = logging.getLogger(__name__)
 
@@ -463,8 +464,12 @@ class ImageManager(BaseDriver):
         #Step 2: Wait (Exponentially) until status moves from:
         # queued --> saving --> active
         attempts = 0
+        logger.debug("Attempting to retrieve Snapshot %s" % (snapshot_id,))
         while True:
-            snapshot = self.get_image(snapshot_id)
+            try:
+                snapshot = self.get_image(snapshot_id)
+            except glance_exception.HTTPUnauthorized
+                raise Exception("Cannot contact glance to retrieve snapshot - %s" % snapshot_id)
             if snapshot:
                 sstatus = snapshot.status
             else:
