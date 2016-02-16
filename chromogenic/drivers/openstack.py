@@ -129,12 +129,13 @@ class ImageManager(BaseDriver):
     def _parse_download_location(self, server, image_name, **kwargs):
         download_location = kwargs.get('download_location')
         download_dir = kwargs.get('download_dir')
+        domain_id = kwargs.pop('domain_id', 'default')
         if not download_dir and not download_location:
             raise Exception("Could not parse download location. Expected "
                             "'download_dir' or 'download_location'")
         elif not download_location:
             #Use download dir & tenant_name to keep filesystem order
-            tenant = find(self.keystone_tenants_method(), id=server.tenant_id)
+            tenant = find(self.keystone_tenants_method(), id=server.tenant_id, domain_id=domain_id)
             local_user_dir = os.path.join(download_dir, tenant.name)
             if not os.path.exists(os.path.dirname(local_user_dir)):
                 os.makedirs(local_user_dir)
@@ -288,7 +289,8 @@ class ImageManager(BaseDriver):
         #Step 2: Create local path for copying image
         server = self.get_server(instance_id)
         if server:
-            tenant = find(self.keystone_tenants_method(), id=server.tenant_id)
+            domain_id = kwargs.pop('domain_id', 'default')
+            tenant = find(self.keystone_tenants_method(), id=server.tenant_id, domain_id=domain_id)
         else:
             tenant = None
         ss_prefix = kwargs.get('ss_prefix',
@@ -578,47 +580,85 @@ class ImageManager(BaseDriver):
     def shared_images_for(self, tenant_name=None,
                           image_name=None, image_id=None):
         """
-
-        @param can_share
-        @type Str
-        If True, allow that tenant to share image with others
+        #NOTE: Returns a GENERATOR not a list. (So -- Failures here will PASS silently!)
         """
         if tenant_name:
             raise KeyError("Key tenant_name has been deprecated in latest version of glance.image_members -- If you need this -- Contact a programmer!")
-            tenant = self.find_tenant(tenant_name)
-            return self.glance.image_members.list(member=tenant)
         if image_id:
+            image = self.glance.images.get(image_id)
+            if hasattr(image, 'visibility'):  # Treated as an obj.
+                visibility = image.visibility
+            elif hasattr(image, 'items'):  # Treated as a dict.
+                visibility = image['visibility']
+            else:
+                raise Exception(
+                    "Could not parse visibility for a glance image!"
+                    " Ask a programmer for help!")
+            if visibility == 'public':
+                return []
             return self.glance.image_members.list(image_id)
         if image_name:
             image = self.find_image(image_name)
-            return self.glance.image_members.list(image_id=image.id)
+      
+            if type(image) == list:
+                image = image[0]
 
-    def share_image(self, image, tenant_name, can_share=False):
-        """
+            if hasattr(image, 'visibility'):  # Treated as an obj.
+                visibility = image.visibility
+            elif hasattr(image, 'items'):  # Treated as a dict.
+                visibility = image['visibility']
+            else:
+                raise Exception(
+                    "Could not parse visibility for a glance image!"
+                    " Ask a programmer for help!")
 
-        @param can_share
-        @type Str
-        If True, allow that tenant to share image with others
+            if visibility == 'public':
+                return []
+
+            return self.glance.image_members.list(image.id)
+
+    def share_image(self, image, tenant_name, **kwargs):
         """
-        tenant = self.find_tenant(tenant_name)
+        Share an image with tenant_name
+        """
+        domain_id = kwargs.pop('domain_id', 'default')
+        tenant = self.find_tenant(tenant_name, domain_id=domain_id)
         if not tenant:
             raise Exception("No tenant named %s" % tenant_name)
-        return self.glance.image_members.create(
-                    image, tenant.id, can_share=can_share)
+        return self.glance.image_members.create(image.id, tenant.id)
 
-    def unshare_image(self, image, tenant_name):
-        tenant = find(self.keystone_tenants_method(), name=tenant_name)
+    def unshare_image(self, image, tenant_name, **kwargs):
+        """
+        Remove a shared image with tenant_name
+        """
+        domain_id = kwargs.pop('domain_id', 'default')
+        tenant = find(self.keystone_tenants_method(), name=tenant_name, domain_id=domain_id)
         return self.glance.image_members.delete(image.id, tenant.id)
 
     #Alternative image uploading
 
     #Lists
     def update_image(self, image, **kwargs):
-        if 'properties' not in kwargs:
+        image_update = 'v3'
+        if hasattr(image, 'properties'):  # Treated as an obj.
             properties = image.properties
+            image_update = 'v2'
+        elif hasattr(image, 'items'):  # Treated as a dict.
+            image_update = 'v3'
+            properties = dict(image.items())
+
+        if 'properties' not in kwargs:
+            if image_update == 'v2':
+                properties = image.properties
+            else:
+                properties = image.get('properties')
         else:
             properties = kwargs.pop("properties")
-        image.update(properties=properties, **kwargs)
+
+        if image_update == 'v2':
+            image.update(properties=properties, **kwargs)
+        else:
+            self.glance.images.update(image.id, **kwargs)
         #After the update, change reference to new image with updated vals
         return self.get_image(image.id)
 
@@ -656,9 +696,10 @@ class ImageManager(BaseDriver):
                 ( i.name and i.name.lower() == image_name.lower() )
                 or (contains and i.name and image_name.lower() in i.name.lower())]
 
-    def find_tenant(self, tenant_name):
+    def find_tenant(self, tenant_name, **kwargs):
         try:
-            tenant = find(self.keystone_tenants_method(), name=tenant_name)
+            domain_id = kwargs.pop('domain_id', 'default')
+            tenant = find(self.keystone_tenants_method(), name=tenant_name, domain_id=domain_id)
             return tenant
         except NotFound:
             return None
