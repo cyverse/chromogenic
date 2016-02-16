@@ -9,15 +9,29 @@ remove_chroot_env, run_command
 from chromogenic.common import remove_files, overwrite_files,\
                                    remove_line_in_files,\
                                    replace_line_in_files,\
-                                   remove_multiline_in_files
+                                   remove_multiline_in_files,\
+                                   execute_chroot_commands
 
 
 def remove_user_data(mounted_path, dry_run=False):
     """
     Remove user data from an image that has already been mounted
+    NOTE: This will also include removing *CLOUD* user data.
     """
     if not check_mounted(mounted_path):
         raise Exception("Expected a mounted path at %s" % mounted_path)
+    distro = check_distro(mounted_path)
+    if 'ubuntu' in distro:
+        cloud_user = 'ubuntu'
+        remove_user_cmd = 'deluser'
+    elif 'centos' in distro:
+        cloud_user = 'centos'
+        remove_user_cmd = 'userdel'
+    else:
+        cloud_user = ''
+        remove_user_cmd = ''
+        raise Exception("Encountered unknown distro %s -- Cannot guarantee removal of the cloud-user" % distro)
+
     remove_files = ['home/*', ]
     overwrite_files = ['', ]
     remove_line_files = []
@@ -27,6 +41,9 @@ def remove_user_data(mounted_path, dry_run=False):
         #TODO: Check this should not be 'AllowGroups users core-services root'
         ("AllowGroups users root.*", "", "etc/ssh/sshd_config"),
     ]
+    execute_lines = []
+    if cloud_user:
+        execute_lines.append([remove_user_cmd, '-r', cloud_user])
     multiline_delete_files = [
         #('delete_from', 'delete_to', 'replace_where')
     ]
@@ -35,6 +52,7 @@ def remove_user_data(mounted_path, dry_run=False):
                       overwrite_list=overwrite_files,
                       replace_line_files=replace_line_files, 
                       multiline_delete_files=multiline_delete_files,
+                      execute_lines=execute_lines,
                       dry_run=dry_run)
 
 
@@ -141,19 +159,33 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
 def _perform_cleaning(mounted_path, rm_files=None,
                       remove_line_files=None, overwrite_list=None,
                       replace_line_files=None, multiline_delete_files=None,
-                      dry_run=False):
+                      execute_lines=None, dry_run=False):
     """
     Runs the commands to perform all cleaning operations.
     For more information see the specific function
     """
-    apt_uninstall(mounted_path, ['avahi-daemon'])
+    apt_uninstall(mounted_path, ['avahi-daemon', 'cloud-init', 'cloud-initramfs-dyn-netconf', 'cloud-guest-utils'])
+    yum_uninstall(mounted_path, ['cloud-init', 'cloud-utils-growpart', 'cloud-utils'])
     remove_files(rm_files, mounted_path, dry_run)
     overwrite_files(overwrite_list, mounted_path, dry_run)
     remove_line_in_files(remove_line_files, mounted_path, dry_run)
     replace_line_in_files(replace_line_files, mounted_path, dry_run)
     remove_multiline_in_files(multiline_delete_files, mounted_path, dry_run)
+    execute_chroot_commands(execute_lines, mounted_path, dry_run)
 
 #Commands requiring a 'chroot'
+def yum_uninstall(mounted_path, uninstall_list):
+    distro = check_distro(mounted_path)
+    if 'centos' not in distro.lower():
+        return
+    try:
+        prepare_chroot_env(mounted_path)
+        for uninstall_item in uninstall_list:
+            run_command(["/usr/sbin/chroot", mounted_path,
+                         'yum', '-qy', 'remove', uninstall_item])
+    finally:
+        remove_chroot_env(mounted_path)
+
 def apt_uninstall(mounted_path, uninstall_list):
     distro = check_distro(mounted_path)
     if 'ubuntu' not in distro.lower():

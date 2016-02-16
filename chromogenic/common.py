@@ -408,6 +408,24 @@ def replace_line_in_files(replace_line_files, mount_point, dry_run=False):
                     dry_run=dry_run)
 
 
+def execute_chroot_commands(subprocess_commands, mounted_path, dry_run=False):
+    """
+    Execute the following command(s) inside a chroot jail
+    """
+    # If empty -- do nothing.
+    if not subprocess_commands:
+        return
+    try:
+        prepare_chroot_env(mounted_path)
+        for cmd_list in subprocess_commands:
+            if 'chroot' not in cmd_list[0]:
+                cmd_list = ["/usr/bin/chroot", mounted_path] + cmd_list
+            print cmd_list
+            run_command(cmd_list, dry_run=dry_run)
+    finally:
+        remove_chroot_env(mounted_path)
+
+
 def remove_multiline_in_files(multiline_delete_files, mount_point, dry_run=False):
     """
     #Remove EVERYTHING between these lines..
