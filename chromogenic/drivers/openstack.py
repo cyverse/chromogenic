@@ -468,7 +468,7 @@ class ImageManager(BaseDriver):
         while True:
             try:
                 snapshot = self.get_image(snapshot_id)
-            except glance_exception.HTTPUnauthorized
+            except glance_exception.HTTPUnauthorized:
                 raise Exception("Cannot contact glance to retrieve snapshot - %s" % snapshot_id)
             if snapshot:
                 sstatus = snapshot.status
