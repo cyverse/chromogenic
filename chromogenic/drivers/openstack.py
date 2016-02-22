@@ -553,7 +553,8 @@ class ImageManager(BaseDriver):
             ks_args['auth_url'] += '/v2.0'
 
         keystone = _connect_to_keystone(*args, **ks_args)
-        nova = _connect_to_nova(*args, **kwargs)
+
+        nova = _connect_to_nova(*args, **ks_args)
         glance = _connect_to_glance(keystone, *args, **kwargs)
         return (keystone, nova, glance)
 
