@@ -53,7 +53,7 @@ class ImageManager(BaseDriver):
         """
         Pick appropriate version of keystone based on credentials
         """
-        identity_version = self.creds.get('identity_version', 'v3')
+        identity_version = self.creds.get('identity_version', 'v2.0')
 
         if '3' in identity_version or 3 in identity_version:
             return self.keystone.projects
@@ -545,8 +545,13 @@ class ImageManager(BaseDriver):
         Can be used to establish a new connection for all clients
         """
         ks_args = kwargs.copy()
-        ks_args['auth_url'] = ks_args['auth_url'].replace('/v2.0','/v3').replace('/tokens','')
-        ks_args['version'] = 'v3'
+        auth_version = ks_args.get('version', 'v3')
+        ks_args['auth_url'] = ks_args['auth_url'].replace('/v2.0','').replace('/v3','').replace('/tokens','')
+        if auth_version == 'v3':
+            ks_args['auth_url'] += '/v3'
+        elif auth_version == 'v2.0':
+            ks_args['auth_url'] += '/v2.0'
+
         keystone = _connect_to_keystone(*args, **ks_args)
         nova = _connect_to_nova(*args, **kwargs)
         glance = _connect_to_glance(keystone, *args, **kwargs)
@@ -599,7 +604,7 @@ class ImageManager(BaseDriver):
             return self.glance.image_members.list(image_id)
         if image_name:
             image = self.find_image(image_name)
-      
+
             if type(image) == list:
                 image = image[0]
 
@@ -650,14 +655,14 @@ class ImageManager(BaseDriver):
         if 'properties' not in kwargs:
             if image_update == 'v2':
                 properties = image.properties
-            else:
+            elif image_update == 'v3':
                 properties = image.get('properties')
         else:
             properties = kwargs.pop("properties")
 
         if image_update == 'v2':
             image.update(properties=properties, **kwargs)
-        else:
+        elif image_update == 'v3':
             self.glance.images.update(image.id, **kwargs)
         #After the update, change reference to new image with updated vals
         return self.get_image(image.id)
