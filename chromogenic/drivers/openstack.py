@@ -360,13 +360,13 @@ class ImageManager(BaseDriver):
     def _perform_download(self, image_id, download_location):
         image = self.get_image(image_id)
         #Step 2: Download local copy of snapshot
-        logger.debug("Image downloading to %s" % download_location)
+        logger.debug("Downloading Image %s: %s" % download_location)
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'w') as f:
-            for chunk in image.data():
+            for chunk in self.glance.images.data(image_id):
                 f.write(chunk)
-        logger.debug("Image downloaded to %s" % download_location)
+        logger.debug("Download Image %s Completed: %s" % download_location)
         return download_location
 
     def upload_image(self, image_name, image_path, **upload_args):
@@ -384,12 +384,15 @@ class ImageManager(BaseDriver):
         Defaults ovf/raw are correct for a eucalyptus .img file
         """
         logger.debug("Saving image %s - %s" % (image_name, image_path))
-        new_image = self.glance.images.create(name=image_name,
-                                             container_format=container_format,
-                                             disk_format=disk_format,
-                                             is_public=is_public,
-                                             properties=properties,
-                                             data=open(image_path))
+        with open(image_path) as the_file:
+            new_image = self.glance.images.create(
+                name=image_name,
+                container_format=container_format,
+                disk_format=disk_format,
+                visibility="public" if is_public else "private",
+                properties=properties,
+                data=the_file)
+        # ASSERT: New image ID now that 'the_file' has completed the upload
         logger.debug("New image created: %s - %s" % (image_name, new_image.id))
         for tenant_name in private_user_list:
             share_image(new_image,tenant_name)
@@ -703,7 +706,8 @@ class ImageManager(BaseDriver):
           True = Public images ONLY
          False = Private images ONLY
         """
-        # Same call..
+        # NOTE: now that glance has moved away from is_public
+        # this 'feature' may not be necessary.
         is_public = None
         if 'is_public' in kwargs:
             is_public = kwargs.pop('is_public')
