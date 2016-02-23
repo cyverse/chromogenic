@@ -112,6 +112,11 @@ class ImageManager(BaseDriver):
             creds['auth_url'] = creds['auth_url'].replace('/tokens','')
         else:
             creds['auth_url'] += "/v2.0/"
+        auth_version = creds.get('ex_force_auth_version', '2.0_password')
+        if '2' in auth_version:
+            creds['version'] = 'v2.0'
+        elif '3' in auth_version:
+            creds['version'] = 'v3'
         return creds
 
     def __init__(self, *args, **kwargs):
@@ -119,7 +124,7 @@ class ImageManager(BaseDriver):
             raise KeyError("Credentials missing in __init__. ")
 
         admin_args = kwargs.copy()
-        auth_version = kwargs.get('version')
+        auth_version = kwargs.get('ex_force_auth_version','2.0_password')
         if '2' in auth_version:
             if '/v2.0/tokens' not in admin_args['auth_url']:
                 admin_args['auth_url'] += '/v2.0/tokens'
