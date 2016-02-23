@@ -1,5 +1,6 @@
 threepio==0.2.0
 rtwo>=0.2.0
+boto==2.39.0
 
 python-glanceclient==1.2.0
 python-keystoneclient==2.1.1
