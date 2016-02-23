@@ -56,7 +56,7 @@ class ImageManager(BaseDriver):
         """
         identity_version = self.creds.get('identity_version', 'v2.0')
 
-        if '3' in identity_version or 3 in identity_version:
+        if '3' in identity_version or identity_version == 3:
             return self.keystone.projects
         return self.keystone.tenants
 
@@ -137,13 +137,17 @@ class ImageManager(BaseDriver):
     def _parse_download_location(self, server, image_name, **kwargs):
         download_location = kwargs.get('download_location')
         download_dir = kwargs.get('download_dir')
-        domain_id = kwargs.pop('domain_id', 'default')
+        identity_version = self.creds.get('version','v2.0')
+        list_args = {}
+        if '3' in identity_version:
+            domain_id = kwargs.pop('domain', 'default')
+            list_args['domain_id'] = domain_id
         if not download_dir and not download_location:
             raise Exception("Could not parse download location. Expected "
                             "'download_dir' or 'download_location'")
         elif not download_location:
             #Use download dir & tenant_name to keep filesystem order
-            tenant = find(self.keystone_tenants_method(), id=server.tenant_id, domain_id=domain_id)
+            tenant = find(self.keystone_tenants_method(), id=server.tenant_id, **list_args)
             local_user_dir = os.path.join(download_dir, tenant.name)
             if not os.path.exists(os.path.dirname(local_user_dir)):
                 os.makedirs(local_user_dir)
@@ -297,8 +301,12 @@ class ImageManager(BaseDriver):
         #Step 2: Create local path for copying image
         server = self.get_server(instance_id)
         if server:
-            domain_id = kwargs.pop('domain_id', 'default')
-            tenant = find(self.keystone_tenants_method(), id=server.tenant_id, domain_id=domain_id)
+            identity_version = self.creds.get('version','v2.0')
+            list_args = {}
+            if '3' in identity_version:
+                domain_id = kwargs.pop('domain', 'default')
+                list_args['domain_id'] = domain_id
+            tenant = find(self.keystone_tenants_method(), id=server.tenant_id, **list_args)
         else:
             tenant = None
         ss_prefix = kwargs.get('ss_prefix',
@@ -639,8 +647,12 @@ class ImageManager(BaseDriver):
         """
         Share an image with tenant_name
         """
-        domain_id = kwargs.pop('domain_id', 'default')
-        tenant = self.find_tenant(tenant_name, domain_id=domain_id)
+        identity_version = self.creds.get('version','v2.0')
+        list_args = {}
+        if '3' in identity_version:
+            domain_id = kwargs.pop('domain', 'default')
+            list_args['domain_id'] = domain_id
+        tenant = self.find_tenant(tenant_name, **list_args)
         if not tenant:
             raise Exception("No tenant named %s" % tenant_name)
         return self.glance.image_members.create(image.id, tenant.id)
@@ -649,8 +661,12 @@ class ImageManager(BaseDriver):
         """
         Remove a shared image with tenant_name
         """
-        domain_id = kwargs.pop('domain_id', 'default')
-        tenant = find(self.keystone_tenants_method(), name=tenant_name, domain_id=domain_id)
+        identity_version = self.creds.get('version','v2.0')
+        list_args = {}
+        if '3' in identity_version:
+            domain_id = kwargs.pop('domain', 'default')
+            list_args['domain_id'] = domain_id
+        tenant = find(self.keystone_tenants_method(), name=tenant_name, **list_args)
         return self.glance.image_members.delete(image.id, tenant.id)
 
     #Alternative image uploading
@@ -716,8 +732,12 @@ class ImageManager(BaseDriver):
 
     def find_tenant(self, tenant_name, **kwargs):
         try:
-            domain_id = kwargs.pop('domain_id', 'default')
-            tenant = find(self.keystone_tenants_method(), name=tenant_name, domain_id=domain_id)
+            identity_version = self.creds.get('version','v2.0')
+            list_args = {}
+            if '3' in identity_version:
+                domain_id = kwargs.pop('domain', 'default')
+                list_args['domain_id'] = domain_id
+            tenant = find(self.keystone_tenants_method(), name=tenant_name, **list_args)
             return tenant
         except NotFound:
             return None
