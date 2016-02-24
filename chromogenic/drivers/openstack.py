@@ -26,7 +26,7 @@ from rtwo.provider import OSProvider
 from rtwo.identity import OSIdentity
 from rtwo.driver import OSDriver
 from rtwo.drivers.common import _connect_to_keystone, _connect_to_nova,\
-                                   _connect_to_glance, find
+                                _connect_to_glance, find
 
 from chromogenic.drivers.base import BaseDriver
 from chromogenic.common import run_command, wildcard_remove
@@ -54,7 +54,7 @@ class ImageManager(BaseDriver):
         """
         Pick appropriate version of keystone based on credentials
         """
-        identity_version = self.creds.get('identity_version', 'v2.0')
+        identity_version = self.creds.get('version', 'v2.0')
 
         if '3' in identity_version or identity_version == 3:
             return self.keystone.projects
@@ -101,7 +101,6 @@ class ImageManager(BaseDriver):
         creds.pop('location', None)
         creds.pop('ex_project_name', None)
         creds.pop('router_name', None)
-        creds.pop('admin_url', None)
         if key and not creds.get('username'):
             creds['username'] = key
         if secret and not creds.get('password'):
@@ -576,19 +575,30 @@ class ImageManager(BaseDriver):
         """
         Can be used to establish a new connection for all clients
         """
-        ks_args = kwargs.copy()
+        ks_kwargs = self._build_keystone_creds(kwargs)
+        nova_kwargs = self._build_nova_creds(kwargs)
+
+        keystone = _connect_to_keystone(*args, **ks_kwargs)
+        nova = _connect_to_nova(*args, **nova_kwargs)
+        glance = _connect_to_glance(keystone, *args, **kwargs)
+        return (keystone, nova, glance)
+
+    def _build_nova_creds(self, credentials):
+        nova_args = credentials.copy()
+        #HACK - Nova is certified-broken-on-v3. 
+        nova_args['version'] = 'v2.0'
+        nova_args['auth_url'] = nova_args['auth_url'].replace('v3','v2.0')
+        return nova_args
+
+    def _build_keystone_creds(self, credentials):
+        ks_args = credentials.copy()
         auth_version = ks_args.get('version', 'v3')
         ks_args['auth_url'] = ks_args['auth_url'].replace('/v2.0','').replace('/v3','').replace('/tokens','')
         if auth_version == 'v3':
             ks_args['auth_url'] += '/v3'
         elif auth_version == 'v2.0':
             ks_args['auth_url'] += '/v2.0'
-
-        keystone = _connect_to_keystone(*args, **ks_args)
-
-        nova = _connect_to_nova(*args, **ks_args)
-        glance = _connect_to_glance(keystone, *args, **kwargs)
-        return (keystone, nova, glance)
+        return ks_args
 
     def get_instance(self, instance_id):
         instances = self.admin_driver._connection.ex_list_all_instances()
