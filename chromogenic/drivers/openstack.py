@@ -210,11 +210,20 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
+        if hasattr(snapshot, 'properties'):  # Treated as an obj.
+            properties = snapshot.properties
+            properties.update({
+                'container_format': snapshot.container_format,
+                'disk_format': snapshot.disk_format,
+            })
+        elif hasattr(snapshot, 'items'):  # Treated as a dict.
+            properties = dict(snapshot.items())
+        
         upload_args = self.parse_upload_args(image_name, download_location,
-                                             kernel_id=snapshot.properties.get('kernel_id'),
-                                             ramdisk_id=snapshot.properties.get('ramdisk_id'),
-                                             disk_format=snapshot.disk_format,
-                                             container_format=snapshot.container_format,
+                                             kernel_id=properties.get('kernel_id'),
+                                             ramdisk_id=properties.get('ramdisk_id'),
+                                             disk_format=properties.get('disk_format'),
+                                             container_format=properties.get('container_format'),
                                              **kwargs)
 
         new_image = self.upload_local_image(**upload_args)
@@ -360,13 +369,13 @@ class ImageManager(BaseDriver):
     def _perform_download(self, image_id, download_location):
         image = self.get_image(image_id)
         #Step 2: Download local copy of snapshot
-        logger.debug("Downloading Image %s: %s" % download_location)
+        logger.debug("Downloading Image %s: %s" % (image_id, download_location))
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'w') as f:
             for chunk in self.glance.images.data(image_id):
                 f.write(chunk)
-        logger.debug("Download Image %s Completed: %s" % download_location)
+        logger.debug("Download Image %s Completed: %s" % (image_id, download_location))
         return download_location
 
     def upload_image(self, image_name, image_path, **upload_args):
@@ -383,6 +392,7 @@ class ImageManager(BaseDriver):
         Upload a single file as a glance image
         Defaults ovf/raw are correct for a eucalyptus .img file
         """
+        #FIXME: properties aren't used in newer versions of glance.
         logger.debug("Saving image %s - %s" % (image_name, image_path))
         with open(image_path) as the_file:
             new_image = self.glance.images.create(
