@@ -218,7 +218,6 @@ class ImageManager(BaseDriver):
             })
         elif hasattr(snapshot, 'items'):  # Treated as a dict.
             properties = dict(snapshot.items())
-        
         upload_args = self.parse_upload_args(image_name, download_location,
                                              kernel_id=properties.get('kernel_id'),
                                              ramdisk_id=properties.get('ramdisk_id'),
@@ -230,7 +229,7 @@ class ImageManager(BaseDriver):
 
         if not kwargs.get('keep_image',False):
             wildcard_remove(download_dir)
-            snapshot.delete()
+            self.delete_images(image_id=snapshot.id)
 
         return new_image
 
@@ -387,21 +386,18 @@ class ImageManager(BaseDriver):
     def upload_local_image(self, image_name, image_path,
                      container_format='ovf',
                      disk_format='raw',
-                     is_public=True, private_user_list=[], properties={}):
+                     is_public=True, private_user_list=[], **extras):
         """
         Upload a single file as a glance image
-        Defaults ovf/raw are correct for a eucalyptus .img file
+        'extras' kwargs will be passed directly to glance.
         """
-        #FIXME: properties aren't used in newer versions of glance.
         logger.debug("Saving image %s - %s" % (image_name, image_path))
-        with open(image_path) as the_file:
-            new_image = self.glance.images.create(
-                name=image_name,
-                container_format=container_format,
-                disk_format=disk_format,
-                visibility="public" if is_public else "private",
-                properties=properties,
-                data=the_file)
+        new_image = self.glance.images.create(
+            name=image_name,
+            container_format=container_format,
+            disk_format=disk_format,
+            visibility="public" if is_public else "private",
+            data=image_path)
         # ASSERT: New image ID now that 'the_file' has completed the upload
         logger.debug("New image created: %s - %s" % (image_name, new_image.id))
         for tenant_name in private_user_list:
@@ -463,7 +459,7 @@ class ImageManager(BaseDriver):
         if len(images) == 0:
             return False
         for image in images:
-            self.glance.images.delete(image)
+            self.glance.images.delete(image.id)
 
         return True
 
