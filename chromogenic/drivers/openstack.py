@@ -128,6 +128,9 @@ class ImageManager(BaseDriver):
         if '2' in auth_version:
             if '/v2.0/tokens' not in admin_args['auth_url']:
                 admin_args['auth_url'] += '/v2.0/tokens'
+        elif '3' in auth_version:
+            if '/v3/tokens' not in admin_args['auth_url']:
+                admin_args['auth_url'] += '/v3/tokens'
         self.admin_driver = self._build_admin_driver(**admin_args)
         self.creds = self._image_creds_convert(*args, **kwargs)
         (self.keystone,\
