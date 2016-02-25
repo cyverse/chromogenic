@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import logging
+from chromogenic.settings import chromo_settings
 
 logger = logging.getLogger(__name__)
 
@@ -24,19 +25,21 @@ def touch_file(file_path):
     with open(file_path, 'a'):
         os.utime(file_path, None)
 
+
 def inject_atmo_key(mounted_path, ssh_dir="root/.ssh/"):
-    #Ensure SSH Directory exists
-    ssh_dir = os.path.join(mounted_path,ssh_dir)
+    # Ensure SSH Directory exists
+    ssh_dir = os.path.join(mounted_path, ssh_dir)
     if not os.path.isdir(ssh_dir):
         os.makedirs(ssh_dir)
     auth_key_file = "%s/authorized_keys" % ssh_dir
-    ssh_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVVkgGS8QwHet+aF401l6MLD206yfE76Pe8UAbWhKdE1155IHyDumS5226cTf+5/1zqyzlGwvHJMhzJEztImJghXAWMw7AOzDUYmIpGGhnvmVE1mJN6Iy3aRDyJOcPOqd1ZGbywzzQioiYjoxKa/HT5QN5F/4Mdsqn3mgFdWgXxmY7X3fZGphk5vOK/8J8tSpy4dLIBI+WRrN4ZR7IOrvzkZght/YjtvgPhJqZzgEzcTP4BMpUNWlOFL95Usk3lzqJTBDzlM71ivaHQ3OqxrjpThMSGoQhedupsx8FrmBvOo1OxjfIj0/hIEtjH9FE2lc5GZBy7B1EuqXApR7Vopa3 atmo@iplantcollaborative.org"
+    ssh_key = chromo_settings.SSH_KEY
     ssh_key_template = """#Injected by Chromogenic
 %s
 """ % ssh_key
 
     mounted_auth_key_file = os.path.join(mounted_path, auth_key_file)
     write_file(mounted_auth_key_file, ssh_key_template)
+
 
 def inject_denyhosts_file(mounted_path, denyhosts_file="var/lib/denyhosts/allowed-hosts"):
     """
