@@ -587,7 +587,7 @@ class ImageManager(BaseDriver):
         nova_args = credentials.copy()
         #HACK - Nova is certified-broken-on-v3. 
         nova_args['version'] = 'v2.0'
-        nova_args['auth_url'] = nova_args['auth_url'].replace('v3','v2.0')
+        nova_args['auth_url'] = nova_args['auth_url'].replace('v3','v2.0').replace('/tokens','')
         return nova_args
 
     def _build_keystone_creds(self, credentials):
