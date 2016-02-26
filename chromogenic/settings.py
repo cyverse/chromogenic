@@ -10,6 +10,14 @@ import os
 
 APP_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, APP_DIRECTORY)
+#NOTE: if 'SECRETS_MODULE' is enabled, chromogenic settings should be kept there.
+if hasattr(settings, 'SECRETS_MODULE'):
+    if hasattr(settings, 'CHROMOGENIC'):
+        raise Exception(
+            "Move definition of 'CHROMOGENIC' *OUT* of your local.py and "
+            "into the file defined in SECRETS_MODULE")
+    settings = getattr(settings, 'SECRETS_MODULE')
+
 
 USER_SETTINGS = getattr(settings, 'CHROMOGENIC', {})
 
