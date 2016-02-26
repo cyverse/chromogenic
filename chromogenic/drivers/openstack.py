@@ -398,12 +398,12 @@ class ImageManager(BaseDriver):
             name=image_name,
             container_format=container_format,
             disk_format=disk_format,
-            visibility="public" if is_public else "private",
-            data=image_path)
+            visibility="public" if is_public else "private")
+        self.glance.images.upload(new_image.id, open(image_path, 'rb'))
         # ASSERT: New image ID now that 'the_file' has completed the upload
         logger.debug("New image created: %s - %s" % (image_name, new_image.id))
         for tenant_name in private_user_list:
-            share_image(new_image,tenant_name)
+            self.share_image(new_image,tenant_name)
             logger.debug("%s has permission to launch %s"
                          % (tenant_name, new_image))
         return new_image.id
@@ -440,9 +440,9 @@ class ImageManager(BaseDriver):
                                              is_public=is_public,
                                              properties=opts)
         for tenant_name in private_user_list:
-            share_image(new_kernel,tenant_name)
-            share_image(new_ramdisk,tenant_name)
-            share_image(new_image,tenant_name)
+            self.share_image(new_kernel,tenant_name)
+            self.share_image(new_ramdisk,tenant_name)
+            self.share_image(new_image,tenant_name)
             logger.debug("%s has permission to launch %s"
                          % (tenant_name, new_image))
         return new_image
