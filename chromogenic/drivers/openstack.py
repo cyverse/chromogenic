@@ -202,7 +202,26 @@ class ImageManager(BaseDriver):
         download_kwargs = self.download_instance_args(instance_id, image_name, **kwargs)
         snapshot_id, download_location = self.download_instance(**download_kwargs)
         download_dir = os.path.dirname(download_location)
-        snapshot = self.get_image(snapshot_id)
+	#Step 2: Turn the snapshot into a 'formal image'
+        kwargs.pop('download_dir',None)
+        kwargs.pop('download_location',None)
+        return self.clone_image(snapshot_id, image_name, download_dir, download_location, **kwargs)
+
+    def clone_image(self, parent_image_id, image_name, download_dir, download_location, **kwargs):
+	"""
+	Creates an image of an image in the image-list
+        Required Args:
+            parent_image_id - The parent image that will be cloned
+            image_name - The name of the new image
+            download_location OR download_dir - Where to download the image
+            if download_dir:
+                download_location = download_dir/username/image_name.qcow2
+	"""
+        parent_image = self.get_image(parent_image_id)
+        #Step 1 download a local copy
+        if not os.path.exists(download_location) or kwargs.get('force',False):
+            self.download_image(parent_image_id, download_location)
+
         #Step 2: Clean the local copy
         if kwargs.get('clean_image',True):
             self.mount_and_clean(
@@ -212,14 +231,14 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
-        if hasattr(snapshot, 'properties'):  # Treated as an obj.
-            properties = snapshot.properties
+        if hasattr(parent_image, 'properties'):  # Treated as an obj.
+            properties = parent_image.properties
             properties.update({
-                'container_format': snapshot.container_format,
-                'disk_format': snapshot.disk_format,
+                'container_format': parent_image.container_format,
+                'disk_format': parent_image.disk_format,
             })
-        elif hasattr(snapshot, 'items'):  # Treated as a dict.
-            properties = dict(snapshot.items())
+        elif hasattr(parent_image, 'items'):  # Treated as a dict.
+            properties = dict(parent_image.items())
         upload_args = self.parse_upload_args(image_name, download_location,
                                              kernel_id=properties.get('kernel_id'),
                                              ramdisk_id=properties.get('ramdisk_id'),
@@ -231,7 +250,10 @@ class ImageManager(BaseDriver):
 
         if not kwargs.get('keep_image',False):
             wildcard_remove(download_dir)
-            self.delete_images(image_id=snapshot.id)
+            try:
+                self.delete_images(image_id=parent_image.id)
+            except Exception as exc:
+                logger.exception("Could not delete the image %s - %s" % (parent_image.id, exc.message))
 
         return new_image
 
@@ -398,12 +420,12 @@ class ImageManager(BaseDriver):
             name=image_name,
             container_format=container_format,
             disk_format=disk_format,
-            visibility="public" if is_public else "private",
-            data=image_path)
+            visibility="public" if is_public else "private")
+        self.glance.images.upload(new_image.id, open(image_path, 'rb'))
         # ASSERT: New image ID now that 'the_file' has completed the upload
         logger.debug("New image created: %s - %s" % (image_name, new_image.id))
         for tenant_name in private_user_list:
-            share_image(new_image,tenant_name)
+            self.share_image(new_image,tenant_name)
             logger.debug("%s has permission to launch %s"
                          % (tenant_name, new_image))
         return new_image.id
@@ -440,9 +462,9 @@ class ImageManager(BaseDriver):
                                              is_public=is_public,
                                              properties=opts)
         for tenant_name in private_user_list:
-            share_image(new_kernel,tenant_name)
-            share_image(new_ramdisk,tenant_name)
-            share_image(new_image,tenant_name)
+            self.share_image(new_kernel,tenant_name)
+            self.share_image(new_ramdisk,tenant_name)
+            self.share_image(new_image,tenant_name)
             logger.debug("%s has permission to launch %s"
                          % (tenant_name, new_image))
         return new_image
@@ -587,7 +609,7 @@ class ImageManager(BaseDriver):
         nova_args = credentials.copy()
         #HACK - Nova is certified-broken-on-v3. 
         nova_args['version'] = 'v2.0'
-        nova_args['auth_url'] = nova_args['auth_url'].replace('v3','v2.0')
+        nova_args['auth_url'] = nova_args['auth_url'].replace('v3','v2.0').replace('/tokens','')
         return nova_args
 
     def _build_keystone_creds(self, credentials):
