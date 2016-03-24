@@ -133,10 +133,17 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
         ("MACADDR=*", "", "etc/sysconfig/network-scripts/ifcfg-eth0"),
         ("SELINUX=.*", "SELINUX=disabled", "etc/syslinux/selinux"),
         ("SELINUX=.*", "SELINUX=disabled", "etc/selinux/config"),
+        ("users:", "#users:", "etc/cloud/cloud.cfg"),
+        ("[ ]* - default", "#  - default", "etc/cloud/cloud.cfg"),
+        ("disable_root: true", "disable_root: false", "etc/cloud/cloud.cfg"),
+        ("disable_root: 1", "disable_root: 0", "etc/cloud/cloud.cfg"),
+        ("ssh_deletekeys:.*1", "ssh_deletekeys: 0", "etc/cloud/cloud.cfg"),
+        ("ssh_deletekeys:.*true", "ssh_deletekeys: false", "etc/cloud/cloud.cfg"),
     ]
     multiline_delete_files = [
         #('delete_from', 'delete_to', 'replace_where')
     ]
+    apt_uninstall(mounted_path, ['avahi-daemon', ])
     _perform_cleaning(mounted_path, rm_files=remove_files,
                       remove_line_files=remove_line_files,
                       overwrite_list=overwrite_files,
@@ -153,8 +160,6 @@ def _perform_cleaning(mounted_path, rm_files=None,
     Runs the commands to perform all cleaning operations.
     For more information see the specific function
     """
-    apt_uninstall(mounted_path, ['avahi-daemon', 'cloud-init', 'cloud-initramfs-dyn-netconf', 'cloud-guest-utils'])
-    yum_uninstall(mounted_path, ['cloud-init', 'cloud-utils-growpart', 'cloud-utils'])
     remove_files(rm_files, mounted_path, dry_run)
     overwrite_files(overwrite_list, mounted_path, dry_run)
     remove_line_in_files(remove_line_files, mounted_path, dry_run)
