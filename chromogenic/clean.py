@@ -13,7 +13,7 @@ from chromogenic.common import remove_files, overwrite_files,\
                                    execute_chroot_commands
 
 
-def remove_user_data(mounted_path, dry_run=False):
+def remove_user_data(mounted_path, author=None, dry_run=False):
     """
     Remove user data from an image that has already been mounted
     NOTE: This will also include removing *CLOUD* user data.
@@ -42,8 +42,11 @@ def remove_user_data(mounted_path, dry_run=False):
         ("AllowGroups users root.*", "", "etc/ssh/sshd_config"),
     ]
     execute_lines = []
-    if cloud_user:
+    if remove_user_cmd and cloud_user:
         execute_lines.append([remove_user_cmd, '-r', cloud_user])
+    if remove_user_cmd and author:
+        execute_lines.append([remove_user_cmd, '-r', author])
+
     multiline_delete_files = [
         #('delete_from', 'delete_to', 'replace_where')
     ]

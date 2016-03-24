@@ -65,7 +65,7 @@ class BaseDriver():
                     % image_path)
         try:
             #Required cleaning
-            remove_user_data(mount_point)
+            remove_user_data(mount_point, author=kwargs.get('created_by'))
             remove_atmo_data(mount_point)
             remove_vm_specific_data(mount_point)
 
