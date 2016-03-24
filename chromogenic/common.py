@@ -103,6 +103,8 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     return (out,err)
 
 def overwrite_file(filepath, dry_run=False):
+    if '*' in filepath:
+        return wildcard_overwrite_file(filepath, dry_run=dry_run)
     if not os.path.exists(filepath):
         logger.debug("Cannot copy /dev/null to non-existent file: %s" %
                 filepath)
@@ -127,6 +129,17 @@ def write_file(filepath, text_to_write):
         #Write the text, end with empty line
         the_file.write('%s\n' % text_to_write)
     logger.info("%s written to file: %s" % (text_to_write, filepath))
+
+def wildcard_overwrite_file(wildcard_path, dry_run=False):
+    """
+    Expand the wildcard to match all files, delete each one.
+    """
+    logger.info("Wildcard remove: %s" % wildcard_path)
+    glob_list = glob.glob(wildcard_path)
+    if glob_list:
+        for filepath in glob_list:
+            cmd_list = ['/bin/cp', '-f', '/dev/null', '%s' % filepath]
+            run_command(cmd_list, dry_run=dry_run)
 
 def wildcard_remove(wildcard_path, dry_run=False):
     """
