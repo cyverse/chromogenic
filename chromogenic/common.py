@@ -435,7 +435,7 @@ def execute_chroot_commands(subprocess_commands, mounted_path, dry_run=False):
         prepare_chroot_env(mounted_path)
         for cmd_list in subprocess_commands:
             if 'chroot' not in cmd_list[0]:
-                cmd_list = ["/usr/bin/chroot", mounted_path] + cmd_list
+                cmd_list = ["/usr/sbin/chroot", mounted_path] + cmd_list
             print cmd_list
             run_command(cmd_list, dry_run=dry_run)
     finally:
