@@ -23,17 +23,17 @@ def remove_user_data(mounted_path, author=None, dry_run=False):
     distro = check_distro(mounted_path)
     if 'ubuntu' in distro:
         cloud_user = 'ubuntu'
-        remove_user_cmd = 'deluser'
+        remove_user_cmd = '/usr/sbin/userdel'
     elif 'centos' in distro:
         cloud_user = 'centos'
-        remove_user_cmd = 'userdel'
+        remove_user_cmd = '/usr/sbin/userdel'
     else:
         cloud_user = ''
         remove_user_cmd = ''
         raise Exception("Encountered unknown distro %s -- Cannot guarantee removal of the cloud-user" % distro)
 
     remove_files = ['home/*', ]
-    overwrite_files = ['', ]
+    overwrite_files = []
     remove_line_files = []
     replace_line_files = [
         #('replace_pattern','replace_with','in_file'),
@@ -68,17 +68,11 @@ def remove_atmo_data(mounted_path, dry_run=False):
     remove_files = [#Atmo
                     'etc/rc.local.atmo',
                     'usr/sbin/atmo_boot.py',
-                    'var/log/atmo/post-scripts/stdout',
-                    'var/log/atmo/post-scripts/stderr',
-                    'var/log/atmo/atmo_boot.log',
-                    'var/log/atmo/atmo_init.log',
-                    'var/log/atmo/atmo_init_full.log',
-                    'var/log/atmo/shellinaboxd.log',
+                    'var/log/atmo/post-scripts/*',
                     'var/log/atmo/*.log',
                     #Puppet
                     'var/lib/puppet/run/*.pid',
                     'etc/puppet/ssl', 
-                    'var/log/puppet',
                     #SSH
                     'root/.ssh',
                    ]

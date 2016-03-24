@@ -71,7 +71,7 @@ What Happens When an Image is Created?:
   * User data is removed
   * Atmosphere specific data is removed
   * Log files, history files, and one-time-use files are removed
-  * NOTE: These are a lot of system calls, most calls are inline-sed replacements, as well as other system level calls ( cp /dev/null \<File\> , rm \<File\> )
+  * NOTE: These are a lot of system calls, most calls are inline-sed replacements, as well as other system level calls ( truncate -s0 \<File\> , rm \<File\> )
 * Additional support available for converting from Xen -> KVM:
   * Image is converted from a 'xen-based' image to a 'kvm-based' image
   * Xen specific modules are removed, KVM specific modules are added in their place

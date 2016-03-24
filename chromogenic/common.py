@@ -85,7 +85,7 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         #Bail before making the call
         logger.debug("Mock Command: %s" % cmd_str)
         return ('','')
-    logger.info("Run Command: %s" % cmd_str)
+    #Execution
     try:
         if stdin:
             proc = subprocess.Popen(commandList, stdout=stdout, stderr=stderr,
@@ -94,22 +94,31 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             proc = subprocess.Popen(commandList, stdout=stdout, stderr=stderr,
                     shell=shell)
         out,err = proc.communicate(input=stdin)
+        logger.info("Completed Command: %s" % cmd_str)
+    except Exception, e:
+        logger.exception("Failed command: %s" % cmd_str)
+        logger.exception(e)
+
+    #logging - NEVER let logging the commands be the reason
+    # run command fails.
+    try:
+        if stdin:
+            logger.debug("%s STDIN: %s" % (cmd_str, stdin))
+        logger.debug("%s STDOUT: %s" % (cmd_str, out))
+        logger.debug("%s STDERR: %s" % (cmd_str, err))
     except Exception, e:
         logger.exception(e)
-    if stdin:
-        logger.debug("%s STDIN: %s" % (cmd_str, stdin))
-    logger.debug("%s STDOUT: %s" % (cmd_str, out))
-    logger.debug("%s STDERR: %s" % (cmd_str, err))
+
     return (out,err)
 
 def overwrite_file(filepath, dry_run=False):
     if '*' in filepath:
         return wildcard_overwrite_file(filepath, dry_run=dry_run)
     if not os.path.exists(filepath):
-        logger.debug("Cannot copy /dev/null to non-existent file: %s" %
+        logger.debug("Cannot `truncate -s0` to non-existent file: %s" %
                 filepath)
         return
-    cmd_list = ['/bin/cp', '-f', '/dev/null', '%s' % filepath]
+    cmd_list = ['/usr/bin/truncate', '-s0', '%s' % filepath]
     run_command(cmd_list, dry_run=dry_run)
 
 
@@ -138,7 +147,7 @@ def wildcard_overwrite_file(wildcard_path, dry_run=False):
     glob_list = glob.glob(wildcard_path)
     if glob_list:
         for filepath in glob_list:
-            cmd_list = ['/bin/cp', '-f', '/dev/null', '%s' % filepath]
+            cmd_list = ['/usr/bin/truncate', '-s0', '%s' % filepath]
             run_command(cmd_list, dry_run=dry_run)
 
 def wildcard_remove(wildcard_path, dry_run=False):
@@ -395,7 +404,7 @@ def remove_files(rm_files, mount_point, dry_run=False):
 
 def overwrite_files(overwrite_files, mount_point, dry_run=False):
     """
-    #Copy /dev/null to clear sensitive logging data
+    #Truncate files to clear sensitive logging data
     """
     for overwrite_path in overwrite_files:
         overwrite_path = _check_mount_path(overwrite_path)
