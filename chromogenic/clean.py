@@ -125,9 +125,13 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
     """
     if not check_mounted(mounted_path):
         raise Exception("Expected a mounted path at %s" % mounted_path)
-    remove_files = ['mnt/*', 'tmp/*', 'root/*',
-                    'dev/*', 'proc/*',
-                   ]
+    remove_files = [
+      'mnt/*', 'mnt/.*',
+      'tmp/*', 'tmp/.*',
+      'proc/*', 'proc/.*',
+      'root/*', 'root/.*',
+      'dev/*', 'dev/.*'
+    ]
     remove_line_files = []
     overwrite_files = [
         'etc/udev/rules.d/70-persistent-net.rules',
