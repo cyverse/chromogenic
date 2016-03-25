@@ -92,6 +92,7 @@ def remove_atmo_data(mounted_path, dry_run=False):
         ("# Begin Nagios", "# End Nagios", "etc/sudoers"),
         ("# Begin Sensu", "# End Sensu", "etc/sudoers"),
         ("## Atmosphere System", "", "etc/sudoers"), #Delete to end-of-file..
+        ("#includedir /etc/sudoers.d", "", "etc/sudoers"), #Delete to end-of-file..
         #SSHD_CONFIG:
         ("## Atmosphere System", "## End Atmosphere System",
          "etc/ssh/sshd_config"),
