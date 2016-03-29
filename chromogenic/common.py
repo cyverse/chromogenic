@@ -379,12 +379,16 @@ def check_dir(dir_path):
 ##
 
 def append_line_in_files(append_files, mount_point, dry_run=False):
+    if not append_files:
+        return
     for (append_line, append_to) in append_files:
         append_to = _check_mount_path(append_to)
         mounted_filepath = os.path.join(mount_point, append_to)
         sed_append(append_line, mounted_filepath, dry_run=dry_run)
 
 def prepend_line_in_files(prepend_files, mount_point, dry_run=False):
+    if not prepend_files:
+        return
     for (prepend_line, prepend_to) in prepend_files:
         prepend_to = _check_mount_path(prepend_to)
         mounted_filepath = os.path.join(mount_point, prepend_to)

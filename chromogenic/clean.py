@@ -7,6 +7,7 @@ These functions are used to strip data from a VM before imaging occurs.
 from chromogenic.common import check_mounted, prepare_chroot_env,\
 remove_chroot_env, run_command, check_distro
 from chromogenic.common import remove_files, overwrite_files,\
+                                   append_line_in_files,\
                                    remove_line_in_files,\
                                    replace_line_in_files,\
                                    remove_multiline_in_files,\
@@ -92,6 +93,7 @@ def remove_atmo_data(mounted_path, dry_run=False):
         ("# Begin Nagios", "# End Nagios", "etc/sudoers"),
         ("# Begin Sensu", "# End Sensu", "etc/sudoers"),
         ("## Atmosphere System", "", "etc/sudoers"), #Delete to end-of-file..
+        ("#includedir \/etc\/sudoers.d", "", "etc/sudoers"), #Delete to end-of-file..
         #SSHD_CONFIG:
         ("## Atmosphere System", "## End Atmosphere System",
          "etc/ssh/sshd_config"),
@@ -100,11 +102,16 @@ def remove_atmo_data(mounted_path, dry_run=False):
         ("## Atmosphere System", "## End Atmosphere System",
          "etc/skel/.bashrc"),
     ]
+    append_line_files = [
+        #('append_line','in_file'),
+        ("#includedir /etc/sudoers.d", "etc/sudoers"),
+    ]
     _perform_cleaning(mounted_path, rm_files=remove_files,
                       remove_line_files=remove_line_files,
                       overwrite_list=overwrite_files,
                       replace_line_files=replace_line_files, 
                       multiline_delete_files=multiline_delete_files,
+                      append_line_files=append_line_files,
                       dry_run=dry_run)
     
 
@@ -118,9 +125,13 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
     """
     if not check_mounted(mounted_path):
         raise Exception("Expected a mounted path at %s" % mounted_path)
-    remove_files = ['mnt/*', 'tmp/*', 'root/*',
-                    'dev/*', 'proc/*',
-                   ]
+    remove_files = [
+      'mnt/*', 'mnt/.*',
+      'tmp/*', 'tmp/.*',
+      'proc/*', 'proc/.*',
+      'root/*', 'root/.*',
+      'dev/*', 'dev/.*'
+    ]
     remove_line_files = []
     overwrite_files = [
         'etc/udev/rules.d/70-persistent-net.rules',
@@ -156,7 +167,7 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
 def _perform_cleaning(mounted_path, rm_files=None,
                       remove_line_files=None, overwrite_list=None,
                       replace_line_files=None, multiline_delete_files=None,
-                      execute_lines=None, dry_run=False):
+                      append_line_files=None, execute_lines=None, dry_run=False):
     """
     Runs the commands to perform all cleaning operations.
     For more information see the specific function
@@ -166,6 +177,7 @@ def _perform_cleaning(mounted_path, rm_files=None,
     remove_line_in_files(remove_line_files, mounted_path, dry_run)
     replace_line_in_files(replace_line_files, mounted_path, dry_run)
     remove_multiline_in_files(multiline_delete_files, mounted_path, dry_run)
+    append_line_in_files(append_line_files, mounted_path, dry_run)
     execute_chroot_commands(execute_lines, mounted_path, dry_run)
 
 # Commands requiring a 'chroot'

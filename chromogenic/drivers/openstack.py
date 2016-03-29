@@ -231,22 +231,23 @@ class ImageManager(BaseDriver):
 
         #Step 3: Upload the local copy as a 'real' image
         # with seperate kernel & ramdisk
-        if hasattr(parent_image, 'properties'):  # Treated as an obj.
-            properties = parent_image.properties
-            properties.update({
-                'container_format': parent_image.container_format,
-                'disk_format': parent_image.disk_format,
-            })
-        elif hasattr(parent_image, 'items'):  # Treated as a dict.
-            properties = dict(parent_image.items())
-        upload_args = self.parse_upload_args(image_name, download_location,
-                                             kernel_id=properties.get('kernel_id'),
-                                             ramdisk_id=properties.get('ramdisk_id'),
-                                             disk_format=properties.get('disk_format'),
-                                             container_format=properties.get('container_format'),
-                                             **kwargs)
+        if kwargs.get('upload_image',True):
+            if hasattr(parent_image, 'properties'):  # Treated as an obj.
+                properties = parent_image.properties
+                properties.update({
+                    'container_format': parent_image.container_format,
+                    'disk_format': parent_image.disk_format,
+                })
+            elif hasattr(parent_image, 'items'):  # Treated as a dict.
+                properties = dict(parent_image.items())
+            upload_args = self.parse_upload_args(image_name, download_location,
+                                                 kernel_id=properties.get('kernel_id'),
+                                                 ramdisk_id=properties.get('ramdisk_id'),
+                                                 disk_format=properties.get('disk_format'),
+                                                 container_format=properties.get('container_format'),
+                                                 **kwargs)
 
-        new_image = self.upload_local_image(**upload_args)
+            new_image = self.upload_local_image(**upload_args)
 
         if not kwargs.get('keep_image',False):
             wildcard_remove(download_dir)
