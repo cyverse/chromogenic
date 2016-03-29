@@ -144,6 +144,7 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
         #('delete_from', 'delete_to', 'replace_where')
     ]
     apt_uninstall(mounted_path, ['avahi-daemon', ])
+    package_install(mounted_path, ['cloud-init', 'cloud-utils'])
     _perform_cleaning(mounted_path, rm_files=remove_files,
                       remove_line_files=remove_line_files,
                       overwrite_list=overwrite_files,
@@ -167,7 +168,47 @@ def _perform_cleaning(mounted_path, rm_files=None,
     remove_multiline_in_files(multiline_delete_files, mounted_path, dry_run)
     execute_chroot_commands(execute_lines, mounted_path, dry_run)
 
-#Commands requiring a 'chroot'
+# Commands requiring a 'chroot'
+
+
+def package_uninstall(mounted_path, package_list):
+    distro = check_distro(mounted_path)
+    if 'centos' in distro.lower():
+        return yum_uninstall(mounted_path, package_list)
+    elif 'ubuntu' in distro.lower():
+        return apt_uninstall(mounted_path, package_list)
+
+
+def package_install(mounted_path, package_list):
+    distro = check_distro(mounted_path)
+    if 'centos' in distro.lower():
+        return yum_install(mounted_path, package_list)
+    elif 'ubuntu' in distro.lower():
+        return apt_install(mounted_path, package_list)
+
+
+def yum_install(mounted_path, install_list):
+    distro = check_distro(mounted_path)
+    try:
+        prepare_chroot_env(mounted_path)
+        for install_item in install_list:
+            run_command(["/usr/sbin/chroot", mounted_path,
+                         'yum', '-qy', 'install', install_item])
+    finally:
+        remove_chroot_env(mounted_path)
+
+def apt_install(mounted_path, install_list):
+    distro = check_distro(mounted_path)
+    try:
+        prepare_chroot_env(mounted_path)
+        for install_item in install_list:
+            run_command(["/usr/sbin/chroot", mounted_path,
+                         'apt-get', '-qy', 'install', install_item])
+    finally:
+        remove_chroot_env(mounted_path)
+
+
+
 def yum_uninstall(mounted_path, uninstall_list):
     distro = check_distro(mounted_path)
     if 'centos' not in distro.lower():
