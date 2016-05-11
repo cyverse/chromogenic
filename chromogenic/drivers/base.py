@@ -2,6 +2,7 @@ import os
 import logging
 from chromogenic.common import mount_image, remove_files, fsck_image
 from chromogenic.common import run_command, atmo_required_files
+from chromogenic.common import copy_disk, create_empty_image
 from chromogenic.clean import remove_user_data, remove_atmo_data,\
                                   remove_vm_specific_data
 from chromogenic.common import prepare_chroot_env, remove_chroot_env
@@ -77,12 +78,15 @@ class BaseDriver():
 
             #Required for atmosphere
             atmo_required_files(mount_point)
-
+            #TODO: call `df -h <mount_point>` and record the `Use%`
+            #TODO: IF `Use%` > 90%, set 'new_image=True'
         finally:
             #Don't forget to unmount!
             run_command(['umount', mount_point])
             if nbd_device:
                 run_command(['qemu-nbd', '-d', nbd_device])
+            #TODO: If `new_image=True`
+            #          replace disk image location with the 'new, larger disk'
         return
 
     def file_hook_cleaning(self, mounted_path, **kwargs):
@@ -111,5 +115,29 @@ class BaseDriver():
         finally:
             remove_chroot_env(mounted_path)
         return True
+
+    def _get_file_size_gb(self, filename):
+        #TODO: Move to export.py
+        import math
+        byte_size = os.path.getsize(filename)
+        one_gb = 1024**3
+        gb_size = math.ceil( float(byte_size)/one_gb )
+        return int(gb_size)
+
+    def _copy_image(self, local_img_path, pad_size=1, ext='raw'):
+        #Image is now ready to be placed on a bootable drive, then install grub-legacy
+        image_size = self._get_file_size_gb(local_img_path)
+        local_raw_path = local_img_path +  "." + ext
+        create_empty_image(local_raw_path, ext,
+                           image_size+pad_size,  # Add some empty space..
+                           bootable=True)
+        download_dir = os.path.dirname(local_img_path)
+        mount_point = os.path.join(download_dir,"mount_point/")
+        #copy the data
+        copy_disk(old_image=local_img_path,
+                  new_image=local_raw_path,
+                  download_dir=download_dir)
+        #TODO: Grow filesystem via OS??
+        return local_raw_path
 
 
