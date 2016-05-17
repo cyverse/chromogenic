@@ -30,10 +30,7 @@ from rtwo.drivers.common import _connect_to_keystone, _connect_to_nova,\
 
 from chromogenic.drivers.base import BaseDriver
 from chromogenic.common import run_command, wildcard_remove
-from chromogenic.clean import remove_user_data, remove_atmo_data,\
-                                  remove_vm_specific_data
-from chromogenic.common import unmount_image, mount_image, remove_files,\
-                                  get_latest_ramdisk
+from chromogenic.settings import chromo_settings
 from keystoneclient.exceptions import NotFound
 from glanceclient import exc as glance_exception
 
@@ -246,10 +243,12 @@ class ImageManager(BaseDriver):
                                                  disk_format=properties.get('disk_format'),
                                                  container_format=properties.get('container_format'),
                                                  **kwargs)
-
             new_image = self.upload_local_image(**upload_args)
 
-        if not kwargs.get('keep_image',False):
+        if kwargs.get('remove_local_image', True):
+            wildcard_remove(download_dir)
+
+        if kwargs.get('remove_image', False):
             wildcard_remove(download_dir)
             try:
                 self.delete_images(image_id=parent_image.id)
@@ -298,14 +297,25 @@ class ImageManager(BaseDriver):
              'image_name':image_name,
              'disk_format':kwargs.get('disk_format', 'ami'),
              'container_format':kwargs.get('container_format','ami'),
-             'is_public':kwargs.get('public', True),
              'private_user_list':kwargs.get('private_user_list', []),
         }
+        if kwargs.get('public') and not kwargs.get('visibility'):
+            upload_args['visibility'] = \
+                "public" if kwargs.get('public', True) else "private"
+        elif not kwargs.get('visibility'):
+            raise ValueError("Missing kwarg 'visibility'")
         if kwargs.get('kernel_id') and kwargs.get('ramdisk_id'):
-            upload_args['properties'] = {
-                'kernel_id' :  kwargs['kernel_id'],
-                'ramdisk_id' : kwargs['ramdisk_id']
-            }
+            upload_args.update({
+                'kernel_id':  kwargs['kernel_id'],
+                'ramdisk_id': kwargs['ramdisk_id']
+            })
+
+        # This hook allows you to add arbitrary metadata key-values (Static, for now)
+        # directly to the upload args.
+        # A future solution might expect a method to pass 'upload_args' for further manipulation..
+        included_metadata = getattr(chromo_settings, "INCLUDE_METADATA", {})
+        if included_metadata and type(included_metadata) == dict:
+            upload_args.update(included_metadata)
         return upload_args
 
     def download_snapshot(self, snapshot_id, download_location, *args, **kwargs):
@@ -393,20 +403,20 @@ class ImageManager(BaseDriver):
     def _perform_download(self, image_id, download_location):
         image = self.get_image(image_id)
         #Step 2: Download local copy of snapshot
-        logger.debug("Downloading Image %s: %s" % (image_id, download_location))
+        logger.info("Downloading Image %s: %s" % (image_id, download_location))
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'w') as f:
             for chunk in self.glance.images.data(image_id):
                 f.write(chunk)
-        logger.debug("Download Image %s Completed: %s" % (image_id, download_location))
+        logger.info("Download Image %s Completed: %s" % (image_id, download_location))
         return download_location
 
     def upload_image(self, image_name, image_path, **upload_args):
         if upload_args.get('kernel_path') and upload_args.get('ramdisk_path'):
             return self.upload_full_image(image_name, image_path, **upload_args)
         else:
-            return self.upload_local_image(image_name, image_path, **upload_args)
+            return self.upload_local_image(**upload_args)
 
     def upload_local_image(self, image_name, image_path,
                      container_format='ovf',
@@ -416,18 +426,20 @@ class ImageManager(BaseDriver):
         Upload a single file as a glance image
         'extras' kwargs will be passed directly to glance.
         """
-        logger.debug("Saving image %s - %s" % (image_name, image_path))
+        logger.info("Creating new image %s - %s" % (image_name, container_format))
         new_image = self.glance.images.create(
             name=image_name,
             container_format=container_format,
             disk_format=disk_format,
-            visibility="public" if is_public else "private")
+            visibility="public" if is_public else "private",
+            **extras)
+        logger.info("Uploading file to newly created image %s - %s" % (new_image.id, image_path))
         self.glance.images.upload(new_image.id, open(image_path, 'rb'))
         # ASSERT: New image ID now that 'the_file' has completed the upload
-        logger.debug("New image created: %s - %s" % (image_name, new_image.id))
+        logger.info("New image created: %s - %s" % (image_name, new_image.id))
         for tenant_name in private_user_list:
             self.share_image(new_image,tenant_name)
-            logger.debug("%s has permission to launch %s"
+            logger.info("%s has permission to launch %s"
                          % (tenant_name, new_image))
         return new_image.id
 
