@@ -22,8 +22,8 @@ import logging
 import string
 
 from pytz import datetime
-from rtwo.provider import OSProvider
-from rtwo.identity import OSIdentity
+from rtwo.models.provider import OSProvider
+from rtwo.models.identity import OSIdentity
 from rtwo.driver import OSDriver
 from rtwo.drivers.common import _connect_to_keystone, _connect_to_nova,\
                                 _connect_to_glance, find
