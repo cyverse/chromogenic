@@ -416,7 +416,7 @@ class ImageManager(BaseDriver):
         if upload_args.get('kernel_path') and upload_args.get('ramdisk_path'):
             return self.upload_full_image(image_name, image_path, **upload_args)
         else:
-            return self.upload_local_image(**upload_args)
+            return self.upload_local_image(image_name, image_path, **upload_args)
 
     def upload_local_image(self, image_name, image_path,
                      container_format='ovf',
