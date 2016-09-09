@@ -33,10 +33,21 @@ def inject_atmo_key(mounted_path, ssh_dir="root/.ssh/"):
         os.makedirs(ssh_dir)
     auth_key_file = "%s/authorized_keys" % ssh_dir
     ssh_key = chromo_settings.SSH_KEY
+    if not ssh_key:
+        logger.warn("WARNING: SSH_KEY not set. Image will not be injected with a key!")
+        return
+    if not os.path.isfile(ssh_key):
+        logger.warn("DEPRECATION WARNING: SSH_KEY expects a *file path*. The old behavior, which accepts the raw_text input of an SSH key, will be used for now. In the future, an error will occur.")
+        return inject_raw_key_contents(mounted_path, auth_key_file, ssh_key)
+    with open(ssh_key, 'r') as ssh_keyfile:
+        ssh_key_contents = ssh_keyfile.read()
+    return inject_raw_key_contents(mounted_path, auth_key_file, ssh_key_contents)
+
+
+def inject_raw_key_contents(mounted_path, auth_key_file, ssh_key_contents):
     ssh_key_template = """#Injected by Chromogenic
 %s
-""" % ssh_key
-
+""" % ssh_key_contents
     mounted_auth_key_file = os.path.join(mounted_path, auth_key_file)
     write_file(mounted_auth_key_file, ssh_key_template)
 
