@@ -670,6 +670,8 @@ def _get_parted_fs_type(partition_path):
     out, err = run_command(['parted', '-sm', partition_path, 'print'])
     if not out or err:
         return None
+    elif 'unrecognised disk label' in out:
+        return None
     elif 'Input/output error' in out:
         return None
     elif 'xfs' in out:
@@ -698,25 +700,40 @@ def mount_qcow(image_path, mount_point):
     try:
         partition = _fdisk_get_partition(nbd_dev)
         mount_from = partition.get('image_name',nbd_dev)
+        offset = int(partition.get('start',0)) *512
         fs_type = _get_parted_fs_type(mount_from)
     except Exception as e:
         logger.exception(e)
         mount_from = nbd_dev
+        offset = 0
         fs_type = None
     if fs_type == 'xfs':
         _init_xfs(mount_from)
-    try:
-        out, err = run_command(['mount', mount_from, mount_point])
-        if err:
-            raise Exception("Failed to mount QCOW. STDERR: %s" % err)
-        # The qcow image has been mounted
+    mount_success = attempt_mount(mount_from, mount_point)
+    if not mount_success:
+        mount_success = attempt_mount(nbd_dev, mount_point, "offset=%s,nouuid" % offset)
+    if mount_success:
         return True, nbd_dev
-    except Exception:
-        logger.exception('Could not mount QCOW image:%s to device:%s'
+    else:
+        logger.error('Could not mount QCOW image:%s to device:%s'
                          % (image_path, nbd_dev))
-        # Run only on exception.. We want to keep the image mounted!
+        # Run only on complete mount failure.. We want to keep the image mounted!
         run_command(['qemu-nbd', '-d', nbd_dev])
         return False, None
+
+def attempt_mount(mount_from, mount_point, mount_options=None):
+    if mount_options:
+        mount_cmd_list = ['mount', "-o %s" % mount_options, mount_from, mount_point]
+    else:
+        mount_cmd_list = ['mount', mount_from, mount_point]
+    try:
+        out, err = run_command(mount_cmd_list)
+        if err:
+            raise Exception("Failed to mount. STDERR: %s" % err)
+        return True
+    except:
+        logger.exception('Could not mount file:%s to device:%s using options: %s'
+                         % (mount_from, mount_point, mount_options))
 
 
 def fdisk_image(image_path):
