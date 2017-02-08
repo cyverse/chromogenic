@@ -155,6 +155,7 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
         #('delete_from', 'delete_to', 'replace_where')
     ]
     apt_uninstall(mounted_path, ['avahi-daemon', ])
+    package_uninstall(mounted_path, ['fail2ban', ])
     package_install(mounted_path, ['cloud-init', 'cloud-utils'])
     _perform_cleaning(mounted_path, rm_files=remove_files,
                       remove_line_files=remove_line_files,
