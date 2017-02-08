@@ -401,12 +401,23 @@ class ImageManager(BaseDriver):
         return self._perform_download(image_id, download_location)
 
     def _perform_download(self, image_id, download_location):
+        return self._perform_api_download(image_id, download_location)
+        #return self._perform_glance_download(image_id, download_location)
+
+    def _perform_glance_download(self, image_id, download_location):
+        logger.info("Downloading Image %s: %s" % (image_id, download_location))
+        #TODO: set the environment properly before calling glance
+        out, _ = run_command(['glance', 'image-download', image_id, '--file', download_location, '--progress'])
+        logger.info("Download Image %s Completed: %s" % (image_id, download_location))
+        return download_location
+
+    def _perform_api_download(self, image_id, download_location):
         image = self.get_image(image_id)
         #Step 2: Download local copy of snapshot
         logger.info("Downloading Image %s: %s" % (image_id, download_location))
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
-        with open(download_location,'w') as f:
+        with open(download_location,'wb') as f:
             for chunk in self.glance.images.data(image_id):
                 f.write(chunk)
         logger.info("Download Image %s Completed: %s" % (image_id, download_location))
