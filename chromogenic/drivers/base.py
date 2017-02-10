@@ -61,6 +61,8 @@ class BaseDriver():
         #Mount the directory
         #NOTE: the 'nbd_device' is not being properly passed through here. As a result, the FINAL umount does not use `qemu-nbd -d`
         result, nbd_device = mount_image(image_path, mount_point)
+        if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+            self.hook.on_update_status("mount + cleaning image")
         if not result:
             raise Exception("Encountered errors mounting the image: %s"
                     % image_path)
@@ -85,6 +87,8 @@ class BaseDriver():
             run_command(['umount', mount_point])
             if nbd_device:
                 run_command(['qemu-nbd', '-d', nbd_device])
+            if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+                self.hook.on_update_status("cleaning completed")
             #TODO: If `new_image=True`
             #          replace disk image location with the 'new, larger disk'
         return

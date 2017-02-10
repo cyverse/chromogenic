@@ -17,6 +17,7 @@ manager.create_image('75fdfca4-d49d-4b2d-b919-a3297bc6d7ae', 'my new name')
 
 """
 import os
+import sys
 import time
 import logging
 import string
@@ -33,8 +34,43 @@ from chromogenic.common import run_command, wildcard_remove
 from chromogenic.settings import chromo_settings
 from keystoneclient.exceptions import NotFound
 from glanceclient import exc as glance_exception
+from glanceclient.common import progressbar
+from glanceclient.common import utils
 
 logger = logging.getLogger(__name__)
+
+class ProgressHook(progressbar.VerboseIteratorWrapper):
+    def __init__(self, wrapped, totalsize, hook=None, method='download'):
+        self._wrapped = wrapped
+        self._totalsize = float(totalsize)
+        self._show_progress = self._totalsize != 0
+        self._curr_size = 0
+        self._curr_pct = 0
+        self._last_update = -1
+        self.hook = hook
+        self.method = method
+
+    def _display_progress_bar(self, size_read):
+        if self._show_progress:
+            self._curr_size += size_read
+            self._curr_pct = round(int(100 * self._curr_size / self._totalsize))
+            return self.log_current_progress()
+
+    def log_current_progress(self):
+        # Only log progress if a hook has been received
+        if not getattr(self,'hook') or not hasattr(self.hook, 'on_update_status'):
+            return
+        if self._curr_pct == self._last_update:  #No repeat-updates
+            return
+        #if (self._curr_pct % 5 != 0):  # Slow down results to 0,5,10,...
+        #   return
+        self._last_update = self._curr_pct
+        if self.method == 'download':
+            self.hook.on_update_status("Downloading - %s" % self._curr_pct)
+        elif self.method == 'upload':
+            self.hook.on_update_status("Uploading - %s" % self._curr_pct)
+
+
 
 class ImageManager(BaseDriver):
     """
@@ -354,20 +390,26 @@ class ImageManager(BaseDriver):
             tenant = None
         ss_prefix = kwargs.get('ss_prefix',
                 'ChromoSnapShot_%s' % instance_id) #Legacy format
-        if os.path.exists(download_location):
-            logger.info("Download location exists. Looking for snapshot %s.." %
-                        ss_prefix)
-            snapshot = self.find_image(ss_prefix, contains=True)
-            if snapshot:
-                snapshot = snapshot[0]
-                logger.info("Found snapshot %s. "
-                            "Download skipped for local copy"
-                            % snapshot.id)
+        snapshot = self.find_image(ss_prefix, contains=True)
+        if snapshot:
+            snapshot = snapshot[0]
+            logger.info("Found snapshot %s. " % snapshot.id)
+            if os.path.exists(download_location) and snapshot.size == os.path.getsize(download_location):
+                logger.info("Download should be valid, returning snapshot+location")
                 return (snapshot.id, download_location)
+            if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+                self.hook.on_update_status("Downloading Snapshot:%s" % (snapshot.id,))
+            logger.info("Downloading from existing snapshot: %s" % (snapshot.id,))
+            return (snapshot.id,
+                    self.download_image(snapshot.id, download_location))
+
         now = kwargs.get('timestamp',datetime.datetime.now()) # Pytz datetime
         now_str = now.strftime('%Y-%m-%d_%H:%M:%S')
         ss_name = '%s_%s' % (ss_prefix, now_str)
         meta_data = {}
+        if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+            self.hook.on_update_status("Creating Snapshot:%s from Instance:%s" % (ss_name, instance_id))
+        logger.info("Creating snapshot from instance %s. " % instance_id)
         snapshot = self.create_snapshot(instance_id, ss_name, delay=True, **meta_data)
         return (snapshot.id,
                 self.download_image(snapshot.id, download_location))
@@ -402,24 +444,22 @@ class ImageManager(BaseDriver):
 
     def _perform_download(self, image_id, download_location):
         return self._perform_api_download(image_id, download_location)
-        #return self._perform_glance_download(image_id, download_location)
 
-    def _perform_glance_download(self, image_id, download_location):
-        logger.info("Downloading Image %s: %s" % (image_id, download_location))
-        #TODO: set the environment properly before calling glance
-        out, _ = run_command(['glance', 'image-download', image_id, '--file', download_location, '--progress'])
-        logger.info("Download Image %s Completed: %s" % (image_id, download_location))
-        return download_location
-
-    def _perform_api_download(self, image_id, download_location):
+    def _perform_api_download(self, image_id, download_location, hook=None):
+        if hook and not hasattr(self,'hook'):
+            self.hook = hook
         image = self.get_image(image_id)
         #Step 2: Download local copy of snapshot
         logger.info("Downloading Image %s: %s" % (image_id, download_location))
         if not os.path.exists(os.path.dirname(download_location)):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'wb') as f:
-            for chunk in self.glance.images.data(image_id):
+            body = self.glance.images.data(image_id)
+            body = ProgressHook(body, len(body), getattr(self, 'hook'), 'download')
+            for chunk in body:
                 f.write(chunk)
+        if body._totalsize != body._curr_size:
+            raise Exception("Image Download Failed! Current Size %s/%s" % (body._curr_size, body._totalsize))
         logger.info("Download Image %s Completed: %s" % (image_id, download_location))
         return download_location
 
@@ -445,7 +485,13 @@ class ImageManager(BaseDriver):
             visibility="public" if is_public else "private",
             **extras)
         logger.info("Uploading file to newly created image %s - %s" % (new_image.id, image_path))
-        self.glance.images.upload(new_image.id, open(image_path, 'rb'))
+        if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+            self.hook.on_update_status("Uploading file to image %s" % new_image.id)
+        data_file = open(image_path, 'rb')
+        filesize = utils.get_file_size(data_file)
+        body = ProgressHook(data_file, filesize, getattr(self, 'hook'), 'upload')
+
+        self.glance.images.upload(new_image.id, data_file)
         # ASSERT: New image ID now that 'the_file' has completed the upload
         logger.info("New image created: %s - %s" % (image_name, new_image.id))
         for tenant_name in private_user_list:

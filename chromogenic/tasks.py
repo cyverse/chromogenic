@@ -45,6 +45,7 @@ def migrate_instance_task(origCls, orig_creds, migrateCls, migrate_creds, **imag
 def machine_imaging_task(managerCls, manager_creds, create_img_args):
     logger.info("machine_imaging_task task started at %s." % datetime.now())
     manager = managerCls(**manager_creds)
+    manager.hook = create_img_args.pop('machine_request', None)
     new_image_id = manager.create_image(**create_img_args)
     logger.info("machine_imaging_task task finished at %s." % datetime.now())
     return new_image_id

@@ -13,8 +13,7 @@ def migrate_instance(src_managerCls, src_manager_creds, migrationCls, migration_
     Then start the migration by passing migration class
     """
     src_manager = src_managerCls(**src_manager_creds)
-    migrate = migrationCls(**migration_creds)
-    src_manager = src_manager
+    src_manager.hook = imaging_args.get('machine_request', None)
 
     #1. Download from src_manager
     download_kwargs = src_manager.download_instance_args(**imaging_args)
@@ -39,6 +38,7 @@ def migrate_image(src_managerCls, src_manager_creds, migrationCls, migration_cre
     Then start the migration by passing migration class
     """
     src_manager = src_managerCls(**src_manager_creds)
+    src_manager.hook = imaging_args.get('machine_request', None)
 
     #1. Download & clean from src_manager
     download_kwargs = src_manager.download_image_args(**imaging_args)
@@ -66,6 +66,7 @@ def start_migration(migrationCls, migration_creds, download_location, **imaging_
     * Upload the local image file
     """
     dest_manager = migrationCls(**migration_creds)
+    dest_manager.hook = imaging_args.get('machine_request', None)
     download_dir = os.path.dirname(download_location)
     mount_point = os.path.join(download_dir, 'mount_point/')
     if not os.path.exists(mount_point):
