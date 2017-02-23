@@ -140,12 +140,11 @@ class ImageManager(BaseDriver):
             creds['password'] = secret
         if tenant and not creds.get('tenant_name'):
             creds['tenant_name'] = tenant
+        auth_version = creds.get('ex_force_auth_version', '2.0_password')
         if '/v2.0' in creds['auth_url']:
             creds['auth_url'] = creds['auth_url'].replace('/tokens','')
-        else:
+        elif '2' in auth_version:
             creds['auth_url'] += "/v2.0/"
-        auth_version = creds.get('ex_force_auth_version', '2.0_password')
-        if '2' in auth_version:
             creds['version'] = 'v2.0'
         elif '3' in auth_version:
             creds['version'] = 'v3'
@@ -160,9 +159,6 @@ class ImageManager(BaseDriver):
         if '2' in auth_version:
             if '/v2.0/tokens' not in admin_args['auth_url']:
                 admin_args['auth_url'] += '/v2.0/tokens'
-        elif '3' in auth_version:
-            if '/v3/tokens' not in admin_args['auth_url']:
-                admin_args['auth_url'] += '/v3/tokens'
         self.admin_driver = self._build_admin_driver(**admin_args)
         self.creds = self._image_creds_convert(*args, **kwargs)
         (self.keystone,\
@@ -646,7 +642,7 @@ class ImageManager(BaseDriver):
         elif 'ex_force_auth_version' not in kwargs and 'v2.0' in kwargs.get('auth_url',''):
             creds['ex_force_auth_version'] = '2.0_password'
         else:
-            creds['ex_force_auth_version'] = '2.0_password' # Default, explicitly stated.
+            creds['ex_force_auth_version'] = '3.x_password' # Default, explicitly stated.
 
         return creds
 
