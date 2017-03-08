@@ -708,6 +708,8 @@ class ImageManager(BaseDriver):
             ks_args['auth_url'] += '/v3'
         elif ks_version == '2.0_password':
             ks_args['auth_url'] += '/v2.0'
+        #Graceful degredation -- use project_name over tenant_name, tenant_name over username.
+        ks_args['project_name'] = ks_args.get('ex_tenant_name', ks_args.get('ex_project_name', ks_args.get('username', None)))
         return ks_args
 
     def get_instance(self, instance_id):
