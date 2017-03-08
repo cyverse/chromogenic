@@ -26,8 +26,11 @@ from pytz import datetime
 from rtwo.models.provider import OSProvider
 from rtwo.models.identity import OSIdentity
 from rtwo.driver import OSDriver
-from rtwo.drivers.common import _connect_to_keystone, _connect_to_nova,\
-                                _connect_to_glance, find
+from rtwo.drivers.common import (
+    _connect_to_keystone_v3, _connect_to_glance_by_auth, _connect_to_nova_by_auth,
+    _connect_to_keystone, _connect_to_nova,
+    _connect_to_glance, find
+)
 
 from chromogenic.drivers.base import BaseDriver
 from chromogenic.common import run_command, wildcard_remove
@@ -663,12 +666,17 @@ class ImageManager(BaseDriver):
         """
         Can be used to establish a new connection for all clients
         """
-        ks_kwargs = self._build_keystone_creds(kwargs)
-        nova_kwargs = self._build_nova_creds(kwargs)
-
-        keystone = _connect_to_keystone(*args, **ks_kwargs)
-        nova = _connect_to_nova(*args, **nova_kwargs)
-        glance = _connect_to_glance(keystone, *args, **kwargs)
+        if kwargs.get('version') == 'v3':
+            (auth, sess, token) = _connect_to_keystone_v3(**kwargs)
+            keystone = _connect_to_keystone(auth=auth, session=sess)
+            nova = _connect_to_nova_by_auth(auth=auth, session=sess)
+            glance = _connect_to_glance_by_auth(auth=auth, session=sess)
+        else:
+            ks_kwargs = self._build_keystone_creds(kwargs)
+            nova_kwargs = self._build_nova_creds(kwargs)
+            keystone = _connect_to_keystone(*args, **ks_kwargs)
+            nova = _connect_to_nova(*args, **nova_kwargs)
+            glance = _connect_to_glance(keystone, *args, **kwargs)
         return (keystone, nova, glance)
 
     def _build_nova_creds(self, credentials):

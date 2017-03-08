@@ -1,5 +1,5 @@
 threepio==0.2.0
-rtwo>=0.4.2
+rtwo>=0.5.2
 boto==2.39.0
 
 # rtwo will supply these requirements, which will likely be newer.
