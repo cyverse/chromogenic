@@ -642,7 +642,7 @@ class ImageManager(BaseDriver):
         creds['ex_force_auth_url'] = kwargs.get('auth_url')
         if 'ex_force_auth_version' not in kwargs and 'v3' in kwargs.get('auth_url',''):
             creds['ex_force_auth_version'] = '3.x_password'
-        elif 'ex_force_auth_version' not in kwargs and 'v2.0' in kwargs.get('auth_url',''):
+        elif 'ex_force_auth_version' not in kwargs or 'v2.0' in kwargs.get('auth_url',''):
             creds['ex_force_auth_version'] = '2.0_password'
         else:
             creds['ex_force_auth_version'] = '3.x_password' # Default, explicitly stated.
@@ -689,10 +689,13 @@ class ImageManager(BaseDriver):
     def _build_keystone_creds(self, credentials):
         ks_args = credentials.copy()
         auth_version = ks_args.get('version', 'v3')
+        ks_version = ks_args.get('ex_force_auth_version', '3.x_password')
         ks_args['auth_url'] = ks_args['auth_url'].replace('/v2.0','').replace('/v3','').replace('/tokens','')
-        if auth_version == 'v3':
+        if 'project_name' not in ks_args:
+            ks_args['project_name'] = ks_args.get('tenant_name','')
+        if ks_version == '3.x_password':
             ks_args['auth_url'] += '/v3'
-        elif auth_version == 'v2.0':
+        elif ks_version == '2.0_password':
             ks_args['auth_url'] += '/v2.0'
         return ks_args
 
