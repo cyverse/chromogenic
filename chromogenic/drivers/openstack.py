@@ -693,9 +693,9 @@ class ImageManager(BaseDriver):
         ks_args['auth_url'] = ks_args['auth_url'].replace('/v2.0','').replace('/v3','').replace('/tokens','')
         if 'project_name' not in ks_args:
             ks_args['project_name'] = ks_args.get('tenant_name','')
-        if ks_version == '3.x_password':
+        if auth_version == 'v3':
             ks_args['auth_url'] += '/v3'
-        elif ks_version == '2.0_password':
+        elif auth_version == 'v2.0':
             ks_args['auth_url'] += '/v2.0'
         return ks_args
 
