@@ -193,8 +193,12 @@ exec /sbin/getty -L 38400 ttyS1 vt102
         remove_line_file_list = [
                 #("pattern_match", "file_to_test")
                 ("atmo_boot",  "etc/rc.local"),
-                ("sda2", "etc/fstab"),
-                ("sda3",  "etc/fstab")]
+                # Save /dev/sda1, /dev/vda, /dev/xvda
+                # Delete all other partitions in etc/fstab
+                ("sda[2-9]", "etc/fstab"),
+                ("sda1[0-9]", "etc/fstab"),
+                ("vd[b-z]",  "etc/fstab"),
+                ]
     
         # This list contains all files that should be deleted
         remove_file_list = [
