@@ -4,15 +4,16 @@ imaging/clean.py
 These functions are used to strip data from a VM before imaging occurs.
 
 """
+import logging, os
 from chromogenic.common import check_mounted, prepare_chroot_env,\
 remove_chroot_env, run_command, check_distro
-from chromogenic.common import remove_files, overwrite_files,\
-                                   append_line_in_files,\
-                                   remove_line_in_files,\
-                                   replace_line_in_files,\
-                                   remove_multiline_in_files,\
-                                   execute_chroot_commands
+from chromogenic.common import (
+    remove_files, overwrite_files,
+    append_line_in_files, remove_line_in_files,
+    replace_line_in_files, remove_multiline_in_files,
+    execute_chroot_commands, atmo_required_files, fsck_image, mount_image)
 
+logger = logging.getLogger(__name__)
 
 def remove_user_data(mounted_path, author=None, dry_run=False):
     """
@@ -261,3 +262,79 @@ def reset_root_password(mounted_path, new_password='atmosphere'):
                      "echo %s | passwd root --stdin" % new_password])
     finally:
         remove_chroot_env(mounted_path)
+
+def file_hook_cleaning(mounted_path, **kwargs):
+    """
+    Look for a 'file_hook' on the actual filesystem (Mounted at
+    mounted_path)
+
+    If it exists, prepare a chroot and execute the file
+    """
+    #File hooks inside the local image
+    clean_filename = kwargs.get('file_hook',"/etc/chromogenic/clean")
+    #Ignore the lead / when doing path.join
+    not_root_filename = clean_filename[1:]
+    mounted_clean_path = os.path.join(mounted_path,not_root_filename)
+    if not os.path.exists(mounted_clean_path):
+        return False
+    try:
+        prepare_chroot_env(mounted_path)
+        #Run this command in a prepared chroot
+        run_command(
+            ["/usr/sbin/chroot", mounted_path,
+             "/bin/bash", "-c", clean_filename])
+    except Exception, e:
+        logger.exception(e)
+        return False
+    finally:
+        remove_chroot_env(mounted_path)
+    return True
+
+
+def mount_and_clean(image_path, mount_point, created_by=None, status_hook=None, method_hook=None, **kwargs):
+    """
+    Clean the local image at <image_path>
+    Mount it to <mount_point>
+    """
+    #Prepare the paths
+    if not os.path.exists(image_path):
+        logger.error("Could not find local image!")
+        raise Exception("Image file not found")
+
+    if not os.path.exists(mount_point):
+        os.makedirs(mount_point)
+    #FSCK the image, FIRST!
+    fsck_image(image_path)
+    #Mount the directory
+    #NOTE: the 'nbd_device' is not being properly passed through here. As a result, the FINAL umount does not use `qemu-nbd -d`
+    result, nbd_device = mount_image(image_path, mount_point)
+    if not result:
+        raise Exception("Encountered errors mounting the image: %s"
+                % image_path)
+    if status_hook and hasattr(status_hook, 'on_update_status'):
+        status_hook.on_update_status("mounted + cleaning image")
+    try:
+        #Required cleaning
+        remove_user_data(mount_point, author=created_by)
+        remove_atmo_data(mount_point)
+        remove_vm_specific_data(mount_point)
+
+        #Filesystem cleaning (From within the image)
+        file_hook_cleaning(mount_point, **kwargs)
+
+        #Driver specific cleaning
+        if method_hook:
+            method_hook(image_path, mount_point, **kwargs)
+
+        #Required for atmosphere
+        atmo_required_files(mount_point)
+        #TODO: call `df -h <mount_point>` and record the `Use%`
+        #TODO: IF `Use%` > 90%, set 'new_image=True'
+    finally:
+        #Don't forget to unmount!
+        run_command(['umount', mount_point])
+        if nbd_device:
+            run_command(['qemu-nbd', '-d', nbd_device])
+        if status_hook and hasattr(status_hook, 'on_update_status'):
+            status_hook.on_update_status("cleaning completed")
+    return True

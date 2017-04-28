@@ -4,7 +4,6 @@ import re
 import subprocess
 import logging
 from chromogenic.settings import chromo_settings
-
 logger = logging.getLogger(__name__)
 
 ##
@@ -460,7 +459,7 @@ def execute_chroot_commands(subprocess_commands, mounted_path, dry_run=False):
         for cmd_list in subprocess_commands:
             if 'chroot' not in cmd_list[0]:
                 cmd_list = ["/usr/sbin/chroot", mounted_path] + cmd_list
-            print cmd_list
+            logger.info(cmd_list)
             run_command(cmd_list, dry_run=dry_run)
     finally:
         remove_chroot_env(mounted_path)
@@ -956,4 +955,3 @@ def qemu_convert(image_location, dest_location, source_ext=None, output_ext=None
                             '-O', output_ext,
                             image_location, dest_location])
     return out, err
-

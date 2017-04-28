@@ -7,7 +7,7 @@ from chromogenic.common import prepare_chroot_env, remove_chroot_env,\
                                    append_line_in_files,\
                                    prepend_line_in_files,\
                                    replace_line_in_files
-from chromogenic.common import sed_replace
+from chromogenic.clean import mount_and_clean
 
 
 def export_source(src_managerCls, src_manager_creds, export_kwargs):
@@ -41,9 +41,11 @@ def begin_export(download_location, src_manager, export_kwargs):
     if not os.path.exists(mount_point):
         os.makedirs(mount_point)
     if export_kwargs.get('clean_image',True):
-        src_manager.mount_and_clean(
+        mount_and_clean(
                 download_location,
                 mount_point,
+                status_hook=getattr(src_manager, 'hook', None),
+                method_hook=getattr(src_manager, 'clean_hook', None),
                 **export_kwargs)
     export_kwargs['download_location'] = download_location
 

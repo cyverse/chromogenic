@@ -3,6 +3,7 @@ import os
 import logging
 
 from chromogenic.common import wildcard_remove
+from chromogenic.clean import mount_and_clean
 from chromogenic.drivers.migration import KVM2Xen, Xen2KVM
 
 logger = logging.getLogger(__name__)
@@ -25,9 +26,11 @@ def migrate_instance(src_managerCls, src_manager_creds, migrationCls, migration_
     if not os.path.exists(mount_point):
         os.makedirs(mount_point)
     if imaging_args.get('clean_image',True):
-        src_manager.mount_and_clean(
+        mount_and_clean(
                 download_location,
                 mount_point,
+                status_hook=getattr(src_manager, 'hook', None),
+                method_hook=getattr(src_manager, 'clean_hook', None),
                 **imaging_args)
     #2. Start the migration
     return start_migration(migrationCls, migration_creds, **imaging_args)
@@ -50,9 +53,11 @@ def migrate_image(src_managerCls, src_manager_creds, migrationCls, migration_cre
         os.makedirs(mount_point)
     imaging_args['download_location'] = download_location
     if imaging_args.get('clean_image',True):
-        src_manager.mount_and_clean(
+        mount_and_clean(
                 download_location,
                 mount_point,
+                status_hook=getattr(src_manager, 'hook', None),
+                method_hook=getattr(src_manager, 'clean_hook', None),
                 **imaging_args)
 
     #2. Start the migration
@@ -73,9 +78,11 @@ def start_migration(migrationCls, migration_creds, download_location, **imaging_
         os.makedirs(mount_point)
     #2. clean using dest manager
     if imaging_args.get('clean_image',True):
-        dest_manager.mount_and_clean(
+        mount_and_clean(
                 download_location,
                 mount_point,
+                status_hook=getattr(dest_manager, 'hook', None),
+                method_hook=getattr(dest_manager, 'clean_hook', None),
                 **imaging_args)
 
     #3. Convert from KVM-->Xen or Xen-->KVM (If necessary)

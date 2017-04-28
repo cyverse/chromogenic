@@ -38,6 +38,7 @@ except ImportError:
     has_euca = False
     pass
 
+from chromogenic.clean  import mount_and_clean
 from chromogenic.common import run_command, wildcard_remove
 from chromogenic.common import mount_image, get_latest_ramdisk,\
                                _copy_kernel, _copy_ramdisk
@@ -122,7 +123,7 @@ class ImageManager(BaseDriver):
         #Step 2. Mount and Clean image 
         if kwargs.get('clean_image',True):
             logger.debug("Cleaning image file: %s" % download_location)
-            self.mount_and_clean(
+            mount_and_clean(
                     download_location,
                     mount_point,
                     **kwargs)
@@ -815,7 +816,6 @@ class ImageManager(BaseDriver):
         try:
             self.euca.validate_file(manifest_path)
         except FileValidationError:
-            print 'Invalid manifest'
             logger.error("Invalid manifest file provided. Check path")
             raise
 
@@ -1047,14 +1047,14 @@ These functions belong to euca-upload-bundle in euca2ools 1.3.1
 
 
 def _create_bucket(connection, bucket, canned_acl=None):
-    print 'Creating bucket:', bucket
+    logger.info( 'Creating bucket:%s' % bucket)
     return connection.create_bucket(bucket, policy=canned_acl)
 
 
 def _ensure_bucket(connection, bucket, canned_acl=None):
     bucket_instance = None
     try:
-        print 'Checking bucket:', bucket
+        logger.info('Checking bucket: %s' % bucket)
         bucket_instance = connection.get_bucket(bucket)
     except S3ResponseError, s3error:
         s3error_string = '%s' % (s3error)
@@ -1063,13 +1063,13 @@ def _ensure_bucket(connection, bucket, canned_acl=None):
                 bucket_instance = _create_bucket(
                     connection, bucket, canned_acl)
             except S3CreateError:
-                print 'Unable to create bucket %s' % (bucket)
+                logger.info('Unable to create bucket %s' % (bucket))
                 sys.exit()
         elif (s3error_string.find("403") >= 0):
-            print "You do not have permission to access bucket:", bucket
+            logger.info("You do not have permission to access bucket: %s" % bucket)
             sys.exit()
         else:
-            print s3error_string
+            logger.warn(s3error_string)
             sys.exit()
     return bucket_instance
 
@@ -1080,7 +1080,6 @@ def _get_relative_filename(filename):
 
 
 def _upload_manifest(bucket_instance, manifest_filename, canned_acl=None):
-    print 'Uploading manifest file'
     k = Key(bucket_instance)
     k.key = _get_relative_filename(manifest_filename)
     manifest_file = open(manifest_filename, "rb")
@@ -1089,9 +1088,9 @@ def _upload_manifest(bucket_instance, manifest_filename, canned_acl=None):
     except S3ResponseError, s3error:
         s3error_string = '%s' % (s3error)
         if (s3error_string.find("403") >= 0):
-            print "Permission denied while writing:", k.key
+            logger.error("Permission denied while writing: %s" % k.key)
         else:
-            print s3error_string
+            logger.error("S3 error: %s" % s3error_string)
         sys.exit()
 
 
@@ -1106,7 +1105,7 @@ def _upload_parts(bucket_instance, directory, parts,
         if part == part_to_start_from:
             okay_to_upload = True
         if okay_to_upload:
-            print 'Uploading part:', part
+            logger.info('Uploading part: %s' % part)
             k = Key(bucket_instance)
             k.key = part
             part_file = open(os.path.join(directory, part), "rb")
@@ -1115,9 +1114,9 @@ def _upload_parts(bucket_instance, directory, parts,
             except S3ResponseError, s3error:
                 s3error_string = '%s' % (s3error)
                 if (s3error_string.find("403") >= 0):
-                    print "Permission denied while writing:", k.key
+                    logger.info("Permission denied while writing: %s" % k.key)
                 else:
-                    print s3error_string
+                    logger.info(s3error_string)
                 sys.exit()
 
 

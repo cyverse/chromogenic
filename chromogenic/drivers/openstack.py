@@ -34,6 +34,7 @@ from rtwo.drivers.common import (
 
 from chromogenic.drivers.base import BaseDriver
 from chromogenic.common import run_command, wildcard_remove
+from chromogenic.clean import mount_and_clean
 from chromogenic.settings import chromo_settings
 from keystoneclient.exceptions import NotFound
 from glanceclient import exc as glance_exception
@@ -134,15 +135,23 @@ class ImageManager(BaseDriver):
         key = creds.pop('key', None)
         secret = creds.pop('secret', None)
         tenant = creds.pop('ex_tenant_name', None)
+
+        if not tenant:
+            tenant = creds.pop('tenant_name', None)
+        if not tenant:
+            tenant = creds.pop('ex_project_name', None)
+        if not tenant:
+            tenant = creds.get('project_name')
+
+        if tenant:
+            creds['project_name'] = tenant
+
         creds.pop('location', None)
-        creds.pop('ex_project_name', None)
         creds.pop('router_name', None)
         if key and not creds.get('username'):
             creds['username'] = key
         if secret and not creds.get('password'):
             creds['password'] = secret
-        if tenant and not creds.get('tenant_name'):
-            creds['tenant_name'] = tenant
         auth_version = creds.get('ex_force_auth_version', '2.0_password')
         if '/v2.0' in creds['auth_url']:
             creds['auth_url'] = creds['auth_url'].replace('/tokens','')
@@ -256,9 +265,11 @@ class ImageManager(BaseDriver):
 
         #Step 2: Clean the local copy
         if kwargs.get('clean_image',True):
-            self.mount_and_clean(
+            mount_and_clean(
                     download_location,
                     os.path.join(download_dir, 'mount/'),
+                    status_hook=getattr(self, 'hook', None),
+                    method_hook=getattr(self, 'clean_hook',None),
                     **kwargs)
 
         #Step 3: Upload the local copy as a 'real' image
@@ -668,7 +679,7 @@ class ImageManager(BaseDriver):
         """
         if kwargs.get('version') == 'v3':
             (auth, sess, token) = _connect_to_keystone_v3(**kwargs)
-            keystone = _connect_to_keystone(auth=auth, session=sess)
+            keystone = _connect_to_keystone(auth=auth, session=sess, version='v3')
             nova = _connect_to_nova_by_auth(auth=auth, session=sess)
             glance = _connect_to_glance_by_auth(auth=auth, session=sess)
         else:
