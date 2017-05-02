@@ -160,6 +160,7 @@ class ImageManager(BaseDriver):
             creds['version'] = 'v2.0'
         elif '3' in auth_version:
             creds['version'] = 'v3'
+            creds['project_name'] = tenant
         return creds
 
     def __init__(self, *args, **kwargs):
@@ -677,9 +678,10 @@ class ImageManager(BaseDriver):
         """
         Can be used to establish a new connection for all clients
         """
-        if kwargs.get('version') == 'v3':
+        version = kwargs.get('version')
+        if version == 'v3':
             (auth, sess, token) = _connect_to_keystone_v3(**kwargs)
-            keystone = _connect_to_keystone(auth=auth, session=sess, version='v3')
+            keystone = _connect_to_keystone(auth=auth, session=sess, version=version)
             nova = _connect_to_nova_by_auth(auth=auth, session=sess)
             glance = _connect_to_glance_by_auth(auth=auth, session=sess)
         else:
