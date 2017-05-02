@@ -133,7 +133,14 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
       'root/*', 'root/.*',
       'dev/*', 'dev/.*'
     ]
-    remove_line_files = []
+    remove_line_files = [
+        #("pattern_match", "file_to_test")
+        # Save /dev/sda1, /dev/vda, /dev/xvda
+        # Delete all other partitions in etc/fstab
+        ("sda[2-9]", "etc/fstab"),
+        ("sda1[0-9]", "etc/fstab"),
+        ("vd[b-z]",  "etc/fstab"),
+    ]
     overwrite_files = [
         'etc/udev/rules.d/70-persistent-net.rules',
         'lib/udev/rules.d/75-persistent-net-generator.rules',
