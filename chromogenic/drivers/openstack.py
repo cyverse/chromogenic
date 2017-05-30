@@ -697,6 +697,8 @@ class ImageManager(BaseDriver):
         #HACK - Nova is certified-broken-on-v3. 
         nova_args['version'] = 'v2.0'
         nova_args['auth_url'] = nova_args['auth_url'].replace('v3','v2.0').replace('/tokens','')
+        if credentials.get('ex_force_auth_version','3.x_password') == '2.0_password':
+            nova_args['tenant_name'] = credentials.get('project_name')
         return nova_args
 
     def _build_keystone_creds(self, credentials):
