@@ -582,6 +582,8 @@ class ImageManager(BaseDriver):
             raise Exception("Server %s does not exist" % instance_id)
         logger.debug("Instance is prepared to create a snapshot")
         snapshot_id = self.nova.servers.create_image(server, name, metadata)
+        if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+            self.hook.on_update_status("Retrieving Snapshot:%s created from Instance:%s" % (snapshot_id, instance_id))
         snapshot = self.get_image(snapshot_id)
         if not delay:
             return snapshot
