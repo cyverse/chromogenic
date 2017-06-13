@@ -131,7 +131,7 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
       'tmp/*', 'tmp/.*',
       'proc/*', 'proc/.*',
       'root/*', 'root/.*',
-      'dev/*', 'dev/.*'
+      # 'dev/*', 'dev/.*'
     ]
     remove_line_files = [
         #("pattern_match", "file_to_test")
