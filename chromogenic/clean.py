@@ -337,11 +337,14 @@ def mount_and_clean(image_path, mount_point, created_by=None, status_hook=None, 
         atmo_required_files(mount_point)
         #TODO: call `df -h <mount_point>` and record the `Use%`
         #TODO: IF `Use%` > 90%, set 'new_image=True'
-    finally:
-        #Don't forget to unmount!
-        run_command(['umount', mount_point])
-        if nbd_device:
-            run_command(['qemu-nbd', '-d', nbd_device])
         if status_hook and hasattr(status_hook, 'on_update_status'):
             status_hook.on_update_status("cleaning completed")
+    except Exception as exc:
+        if status_hook and hasattr(status_hook, 'on_update_status'):
+            status_hook.on_update_status("cleaning failed - %s" % exc)
+    finally:
+        #Don't forget to unmount!
+        run_command(['umount', '-lf', mount_point], check_return=True)
+        if nbd_device:
+            run_command(['qemu-nbd', '-d', nbd_device])
     return True

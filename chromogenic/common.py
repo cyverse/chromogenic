@@ -104,15 +104,14 @@ def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             proc = subprocess.Popen(commandList, stdout=stdout, stderr=stderr,
                     shell=shell)
         out,err = proc.communicate(input=stdin)
-        if check_return:
-            return_code = proc.returncode
-            logger.info("Completed Command with exit code: %s" % cmd_str)
-            if return_code != 0:
+        return_code = proc.returncode
+        logger.info("Completed Command with exit code %s: %s" % (return_code, cmd_str))
+        if check_return and return_code != 0:
                 raise Exception("Command returned a non-zero exit code (%s) : %s " % (return_code, cmd_str))
-        logger.info("Completed Command: %s" % cmd_str)
     except Exception, e:
         logger.exception("Failed command: %s" % cmd_str)
         logger.exception(e)
+        raise
 
     #logging - NEVER let logging the commands be the reason
     # run command fails.
@@ -624,9 +623,9 @@ def remove_chroot_env(mount_point):
     sys_dir = os.path.join(mount_point,'sys/')
     dev_dir = os.path.join(mount_point,'dev/')
     etc_resolv_file = os.path.join(mount_point,'etc/resolv.conf')
-    run_command(['umount', proc_dir], check_return=True)
-    run_command(['umount', sys_dir], check_return=True)
-    run_command(['umount', dev_dir], check_return=True)
+    run_command(['umount', '-lf', proc_dir], check_return=True)
+    run_command(['umount', '-lf', sys_dir], check_return=True)
+    run_command(['umount', '-lf', dev_dir], check_return=True)
     run_command(['umount', etc_resolv_file])
 
 
