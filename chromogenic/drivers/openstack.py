@@ -405,7 +405,7 @@ class ImageManager(BaseDriver):
         if snapshot:
             snapshot = snapshot[0]
             logger.info("Found snapshot %s. " % snapshot.id)
-            if os.path.exists(download_location) and snapshot.size == os.path.getsize(download_location):
+            if os.path.exists(download_location) and snapshot.size <= os.path.getsize(download_location):
                 logger.info("Download should be valid, returning snapshot+location")
                 return (snapshot.id, download_location)
             if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
