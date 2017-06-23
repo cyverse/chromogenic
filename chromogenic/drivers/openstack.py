@@ -410,7 +410,7 @@ class ImageManager(BaseDriver):
         if snapshot:
             snapshot = snapshot[0]
             logger.info("Found snapshot %s. " % snapshot.id)
-            if os.path.exists(download_location) and snapshot.size <= os.path.getsize(download_location):
+            if self.contains_image(snapshot.id, download_location):
                 logger.info("Download should be valid, returning snapshot+location")
                 return (snapshot.id, download_location)
             if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
@@ -509,6 +509,8 @@ class ImageManager(BaseDriver):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'wb') as f:
             body = self.glance.images.data(image_id)
+            if not body:
+                raise Exception("Image Download Failed! Did not receive data from glance for image %s" % image_id)
             body = ProgressHook(body, len(body), getattr(self, 'hook'), 'download')
             for chunk in body:
                 f.write(chunk)
