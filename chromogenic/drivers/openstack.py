@@ -453,8 +453,46 @@ class ImageManager(BaseDriver):
         }
         return download_args
 
+    def contains_image(self, image_id, download_location):
+        if not os.path.exists(download_location):
+            return False
+        file_stats = os.stat(download_location)
+        file_size = file_stats.st_size
+        if file_size == 0:
+            return False
+        image_size = self.get_image_size(image_id)
+        if image_size == -1:
+            logger.info(
+                "Cannot compare file-size to image-size."
+                " Image size of %s unknown", image_id)
+            return True
+        if image_size > file_size:
+            logger.info(
+                "Image size (%s) is greater than file size (%s)."
+                " Likely does not contain image.", image_size, file_size)
+            return False
+        return True
+
+    def get_image_size(self, image_id):
+        image = self.get_image(image_id)
+        if not image:
+            logger.warn("Image %s does not exist" % image_id)
+            return -1
+        size = image.get('size')
+        if size and size > 0:
+            return size
+        parent_image_id = image.get('base_image_ref')
+        if not parent_image_id or parent_image_id == image_id:
+            logger.warn("No image size available for %s" % image_id)
+            return -1
+        logger.warn(
+            "No image size available. "
+            "Checking parent image %s"
+            % parent_image_id)
+        return self.get_image_size(parent_image_id)
+
     def download_image(self, image_id, download_location):
-        if os.path.exists(download_location):
+        if self.contains_image(image_id, download_location):
             return download_location
         return self._perform_download(image_id, download_location)
 
@@ -862,11 +900,28 @@ class ImageManager(BaseDriver):
 
         NOTE: glance.images.list() returns a generator, we return lists
         """
-        return [img for img in self.glance.images.list(**kwargs)]
+        now_time = datetime.datetime.now()
+        if getattr(self, 'cache_time', None) \
+                and (now_time - self.cache_time > datetime.timedelta(minutes=self.CACHE_TIMEOUT)):
+            self.clear_cache()
+        if not getattr(self, 'all_images', []):
+            self.all_images = [img for img in self.glance.images.list(**kwargs)]
+            self.cache_time = datetime.datetime.now()
+            return self.all_images
+        logger.info("Returning a cached copy of image-list")
+        return [img for img in self.all_images]
 
+    def clear_cache(self):
+        self.all_images = []
     #Finds
-    def get_image(self, image_id):
-        return self.glance.images.get(image_id)
+
+    def get_image(self, image_id, force_lookup=False):
+        if force_lookup:
+            return self.glance.images.get(image_id)
+        filtered_list = [img for img in self.admin_list_images() if img.id == image_id]
+        if filtered_list:
+            return filtered_list[0]
+        return None
 
     def find_images(self, image_name, contains=False):
         return self.find_image(image_name, contains=contains)
