@@ -643,7 +643,7 @@ class ImageManager(BaseDriver):
         logger.debug("Attempting to retrieve Snapshot %s" % (snapshot_id,))
         while True:
             try:
-                snapshot = self.get_image(snapshot_id)
+                snapshot = self.get_image(snapshot_id, force_lookup=True)
             except glance_exception.HTTPUnauthorized:
                 raise Exception("Cannot contact glance to retrieve snapshot - %s" % snapshot_id)
             if snapshot:
@@ -909,11 +909,13 @@ class ImageManager(BaseDriver):
         if not getattr(self, 'all_images', []):
             self.all_images = [img for img in self.glance.images.list(**kwargs)]
             self.cache_time = datetime.datetime.now()
+            logger.info("Caching a copy of image-list")
             return self.all_images
         logger.info("Returning a cached copy of image-list")
         return [img for img in self.all_images]
 
     def clear_cache(self):
+        logger.info("Clearing the cached image-list")
         self.all_images = []
     #Finds
 
