@@ -86,16 +86,21 @@ class ImageManager(BaseDriver):
     glance = None
     nova = None
     keystone = None
+    CACHE_TIMEOUT = 5 # minutes
 
     def keystone_tenants_method(self):
         """
-        Pick appropriate version of keystone based on credentials
+        Pick appropriate version of keystone based on attributes
         """
-        identity_version = self.creds.get('version', 'v2.0')
-
-        if '3' in identity_version or identity_version == 3:
+        if not self.keystone:
+            raise Exception("keystone is None.")
+        if hasattr(self.keystone, "projects"):
             return self.keystone.projects
-        return self.keystone.tenants
+        elif hasattr(self.keystone, "tenants"):
+            return self.keystone.tenants
+        else:
+            raise Exception("keystone did not have tenants or projects: %s." % self.keystone)
+
 
     @classmethod
     def lc_driver_init(self, lc_driver, *args, **kwargs):
