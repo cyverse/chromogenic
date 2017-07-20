@@ -507,7 +507,9 @@ class ImageManager(BaseDriver):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'wb') as f:
             body = self.glance.images.data(image_id)
-            body = ProgressHook(body, len(body), getattr(self, 'hook', None), 'download')
+            if body == None:  # Falsy checks are not enough here
+                raise Exception("Image Download Failed! Did not receive data (%s) from glance for image %s" % (body,image_id))
+            body = ProgressHook(body, len(body), getattr(self, 'hook'), 'download')
             for chunk in body:
                 f.write(chunk)
         if body._totalsize != body._curr_size:
@@ -539,6 +541,8 @@ class ImageManager(BaseDriver):
         logger.info("Uploading file to newly created image %s - %s" % (new_image.id, image_path))
         if hasattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
             self.hook.on_update_status("Uploading file to image %s" % new_image.id)
+        if not os.path.exists(image_path):
+            raise Exception("Image Upload failed! Image path (%s) does not exist." % (image_path))
         data_file = open(image_path, 'rb')
         filesize = utils.get_file_size(data_file)
         body = ProgressHook(data_file, filesize, getattr(self, 'hook', None), 'upload')
