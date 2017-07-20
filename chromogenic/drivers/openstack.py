@@ -507,9 +507,9 @@ class ImageManager(BaseDriver):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'wb') as f:
             body = self.glance.images.data(image_id)
-            if body == None:  # Falsy checks are not enough here
+            if body == None:  # NOTE: Explicitly checking for None because the iterator returned here is 'Falsy'
                 raise Exception("Image Download Failed! Did not receive data (%s) from glance for image %s" % (body,image_id))
-            body = ProgressHook(body, len(body), getattr(self, 'hook'), 'download')
+            body = ProgressHook(body, len(body), getattr(self, 'hook', None), 'download')
             for chunk in body:
                 f.write(chunk)
         if body._totalsize != body._curr_size:
