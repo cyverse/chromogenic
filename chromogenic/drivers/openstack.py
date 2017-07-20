@@ -343,13 +343,13 @@ class ImageManager(BaseDriver):
         upload_args = {
              'image_path':image_path,
              'image_name':image_name,
-             'disk_format':kwargs.get('disk_format', 'ami'),
-             'container_format':kwargs.get('container_format','ami'),
+             'disk_format':kwargs.get('disk_format', 'raw'),
+             'container_format':kwargs.get('container_format','bare'),
              'private_user_list':kwargs.get('private_user_list', []),
         }
         if kwargs.get('public') and not kwargs.get('visibility'):
             upload_args['visibility'] = \
-                "public" if kwargs.get('public', True) else "private"
+                "public" if kwargs.get('public', True) else "shared"
         elif not kwargs.get('visibility'):
             raise ValueError("Missing kwarg 'visibility'")
         if kwargs.get('kernel_id') and kwargs.get('ramdisk_id'):
@@ -432,8 +432,10 @@ class ImageManager(BaseDriver):
         image = self.get_image(image_id)
         if image.container_format == 'ami':
             ext = 'img'
-        elif image.container_foramt == 'qcow':
+        elif image.container_format == 'qcow':
             ext = 'qcow2'
+        else:
+            ext = image.container_format
         # Create our own sub-system inside the chosen directory
         # <dir>/<image_id>
         # This helps us keep track of ... everything
