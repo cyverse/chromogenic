@@ -930,10 +930,24 @@ class ImageManager(BaseDriver):
     def find_images(self, image_name, contains=False):
         return self.find_image(image_name, contains=contains)
 
-    def find_image(self, image_name, contains=False):
-        return [i for i in self.admin_list_images() if
-                ( i.name and i.name.lower() == image_name.lower() )
-                or (contains and i.name and image_name.lower() in i.name.lower())]
+    def find_image(self, image_name, contains=False, case_sensitive=False):
+        matching_images = []
+        if not case_sensitive:
+            image_name = image_name.lower()
+        for img in self.admin_list_images():
+            if not img:
+                logger.warn("'None' found in image list")
+                continue
+            if not img.get('name'):
+                logger.info("NOTE: Image found without a name: %s" % img)
+            test_name = img.get('name')
+            if not case_sensitive:
+                test_name = test_name.lower()
+            if test_name == image_name:
+                matching_images.append(img)
+            if contains and image_name in test_name:
+                matching_images.append(img)
+        return matching_images
 
     def find_tenant(self, tenant_name, **kwargs):
         try:
