@@ -62,7 +62,7 @@ class ProgressHook(progressbar.VerboseIteratorWrapper):
 
     def log_current_progress(self):
         # Only log progress if a hook has been received
-        if not getattr(self,'hook') or not hasattr(self.hook, 'on_update_status'):
+        if not hasattr(self,'hook') or not hasattr(self.hook, 'on_update_status'):
             return
         if self._curr_pct == self._last_update:  #No repeat-updates
             return
@@ -413,7 +413,7 @@ class ImageManager(BaseDriver):
             if self.contains_image(snapshot.id, download_location):
                 logger.info("Download should be valid, returning snapshot+location")
                 return (snapshot.id, download_location)
-            if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+            if hasattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
                 self.hook.on_update_status("Downloading Snapshot:%s" % (snapshot.id,))
             logger.info("Downloading from existing snapshot: %s" % (snapshot.id,))
             return (snapshot.id,
@@ -423,7 +423,7 @@ class ImageManager(BaseDriver):
         now_str = now.strftime('%Y-%m-%d_%H:%M:%S')
         ss_name = '%s_%s' % (ss_prefix, now_str)
         meta_data = {}
-        if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+        if hasattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
             self.hook.on_update_status("Creating Snapshot:%s from Instance:%s" % (ss_name, instance_id))
         logger.info("Creating snapshot from instance %s. " % instance_id)
         snapshot = self.create_snapshot(instance_id, ss_name, delay=True, **meta_data)
@@ -509,9 +509,7 @@ class ImageManager(BaseDriver):
             os.makedirs(os.path.dirname(download_location))
         with open(download_location,'wb') as f:
             body = self.glance.images.data(image_id)
-            if not body:
-                raise Exception("Image Download Failed! Did not receive data from glance for image %s" % image_id)
-            body = ProgressHook(body, len(body), getattr(self, 'hook'), 'download')
+            body = ProgressHook(body, len(body), getattr(self, 'hook', None), 'download')
             for chunk in body:
                 f.write(chunk)
         if body._totalsize != body._curr_size:
@@ -541,11 +539,11 @@ class ImageManager(BaseDriver):
             visibility="public" if is_public else "private",
             **extras)
         logger.info("Uploading file to newly created image %s - %s" % (new_image.id, image_path))
-        if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+        if hasattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
             self.hook.on_update_status("Uploading file to image %s" % new_image.id)
         data_file = open(image_path, 'rb')
         filesize = utils.get_file_size(data_file)
-        body = ProgressHook(data_file, filesize, getattr(self, 'hook'), 'upload')
+        body = ProgressHook(data_file, filesize, getattr(self, 'hook', None), 'upload')
 
         self.glance.images.upload(new_image.id, data_file)
         # ASSERT: New image ID now that 'the_file' has completed the upload
@@ -627,7 +625,7 @@ class ImageManager(BaseDriver):
             raise Exception("Server %s does not exist" % instance_id)
         logger.debug("Instance is prepared to create a snapshot")
         snapshot_id = self.nova.servers.create_image(server, name, metadata)
-        if getattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
+        if hasattr(self,'hook') and hasattr(self.hook, 'on_update_status'):
             self.hook.on_update_status("Retrieving Snapshot:%s created from Instance:%s" % (snapshot_id, instance_id))
         snapshot = self.get_image(snapshot_id)
         if not delay:
