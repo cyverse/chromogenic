@@ -90,17 +90,13 @@ class ImageManager(BaseDriver):
 
     def keystone_tenants_method(self):
         """
-        Pick appropriate version of keystone based on attributes
+        Pick appropriate version of keystone based on credentials
         """
-        if not self.keystone:
-            raise Exception("keystone is None.")
-        if hasattr(self.keystone, "projects"):
-            return self.keystone.projects
-        elif hasattr(self.keystone, "tenants"):
-            return self.keystone.tenants
-        else:
-            raise Exception("keystone did not have tenants or projects: %s." % self.keystone)
+        identity_version = self.creds.get('version', 'v2.0')
 
+        if '3' in identity_version or identity_version == 3:
+            return self.keystone.projects
+        return self.keystone.tenants
 
     @classmethod
     def lc_driver_init(self, lc_driver, *args, **kwargs):
