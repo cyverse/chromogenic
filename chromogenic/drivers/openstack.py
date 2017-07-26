@@ -938,9 +938,10 @@ class ImageManager(BaseDriver):
             if not img:
                 logger.warn("'None' found in image list")
                 continue
-            if not img.get('name'):
-                logger.info("NOTE: Image found without a name: %s" % img)
             test_name = img.get('name')
+            if not test_name:
+                logger.info("NOTE: Image found without a name: %s" % img)
+                continue
             if not case_sensitive:
                 test_name = test_name.lower()
             if test_name == image_name:
