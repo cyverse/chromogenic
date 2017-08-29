@@ -25,7 +25,7 @@ Migration:
 - [ ] Migrate image from AWS to Eucalyptus
 
 Cleaning:
-- [X] Remove specific data created by deployment in ['Atmosphere'](https://github.com/iPlantCollaborativeOpenSource/atmosphere)
+- [X] Remove specific data created by deployment in ['Atmosphere'](https://github.com/cyverse/atmosphere)
 - [X] Remove users home directories and non-essential files
 - [X] Empty logs without changing permissions or removing files
 
@@ -96,7 +96,7 @@ ASSUMPTIONS:
 
 # How to Install
 ```bash
-pip install git+git://github.com/iPlantCollaborativeOpenSource/chromogenic#egg=chromogenic
+pip install git+git://github.com/cyverse/chromogenic#egg=chromogenic
 ```
 
 # License
