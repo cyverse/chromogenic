@@ -767,14 +767,27 @@ def _get_next_loop():
 
 def _get_next_nbd():
     nbd_name = '/dev/nbd'
-    nbd_count = 1
+    nbd_count = 0
     MAX_PART = 16
     while nbd_count < MAX_PART:
-        out, err = run_command(['fdisk','-l','%s%s' % (nbd_name, nbd_count)])
-        if not out:
-            #No output means the nbd is empty, ready for use.
-            return '%s%s' % (nbd_name, nbd_count)
         nbd_count += 1
+        test_nbd_device = "%s%s" % (nbd_name, nbd_count)  # /dev/nbd1
+        part_file = "%sp1" % (test_nbd_device, )  # /dev/nbd1p1
+        if os.path.exists(part_file):
+            logger.info(
+                "Skipping %s: %s exists"
+                " device assumed to be in use and/or broken.",
+                test_nbd_device, part_file)
+            continue
+        out, err = run_command(['fdisk', '-l', test_nbd_device])
+        if out:
+            # output means the nbd is NOT empty, NOT ready for use.
+            logger.info(
+                "Skipping %s: fdisk output is not-empty"
+                " device assumed to be not ready for use."
+                " Output: %s", test_nbd_device, out)
+            continue
+        return test_nbd_device
     raise Exception("Error: All /dev/nbd* devices are in use")
 
 
