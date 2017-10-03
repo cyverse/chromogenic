@@ -72,6 +72,7 @@ def remove_atmo_data(mounted_path, dry_run=False):
                     'usr/sbin/atmo_boot.py',
                     'var/log/atmo/post-scripts/*',
                     'var/log/atmo/*.log',
+                    '/opt/cyverse/tmp',
                     #Puppet
                     'var/lib/puppet/run/*.pid',
                     'etc/puppet/ssl', 
