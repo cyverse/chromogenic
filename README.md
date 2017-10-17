@@ -1,5 +1,6 @@
 Chromogenic
 ====
+[![PyPI version](https://badge.fury.io/py/chromogenic.svg)](https://badge.fury.io/py/chromogenic)
 
 A unified interface for imaging to/from multiple cloud providers.
 
