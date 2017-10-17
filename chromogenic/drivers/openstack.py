@@ -177,7 +177,8 @@ class ImageManager(BaseDriver):
         self.creds = self._image_creds_convert(*args, **kwargs)
         (self.keystone,\
             self.nova,\
-            self.glance) = self._new_connection(*args, **self.creds)
+            self.glance,
+            self.glance_v1) = self._new_connection(*args, **self.creds)
 
     def _parse_download_location(self, server, image_name, **kwargs):
         download_location = kwargs.get('download_location')
@@ -731,13 +732,17 @@ class ImageManager(BaseDriver):
             keystone = _connect_to_keystone(auth=auth, session=sess, version=version)
             nova = _connect_to_nova_by_auth(auth=auth, session=sess)
             glance = _connect_to_glance_by_auth(auth=auth, session=sess)
+            glance_v1 = glance
         else:
             ks_kwargs = self._build_keystone_creds(kwargs)
             nova_kwargs = self._build_nova_creds(kwargs)
             keystone = _connect_to_keystone(*args, **ks_kwargs)
             nova = _connect_to_nova(*args, **nova_kwargs)
             glance = _connect_to_glance(keystone, *args, **kwargs)
-        return (keystone, nova, glance)
+            kwargs.pop('version', None)
+            kwargs['version'] = 1
+            glance_v1 = _connect_to_glance(keystone, *args, **kwargs)
+        return (keystone, nova, glance, glance_v1)
 
     def _build_nova_creds(self, credentials):
         nova_args = credentials.copy()
@@ -913,6 +918,18 @@ class ImageManager(BaseDriver):
             return self.all_images
         logger.info("Returning a cached copy of image-list")
         return [img for img in self.all_images]
+
+    def list_v1_images(self):
+        image_list = self.glance_v1.images.list()
+        machines = []
+        for img in image_list:
+            machine_copy = img.to_dict()
+            props = machine_copy.pop('properties', {})
+            is_public = machine_copy.pop('is_public')
+            machine_copy['visibility'] = "public" if is_public else "private"
+            machine_copy.update(props)
+            machines.append(machine_copy)
+        return machines
 
     def clear_cache(self):
         logger.info("Clearing the cached image-list")
