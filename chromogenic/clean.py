@@ -84,7 +84,7 @@ def remove_atmo_data(mounted_path, dry_run=False):
     replace_line_files = [
         #('replace_pattern','replace_with','in_file'),
         (".*vncserver$", "", "etc/rc.local"),
-        (".*shellinbaox.*", "", "etc/rc.local")
+        (".*shellinabox.*", "", "etc/rc.local")
     ]
     multiline_delete_files = [
         #TEMPLATE:
