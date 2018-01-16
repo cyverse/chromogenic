@@ -35,7 +35,6 @@ from django.utils import timezone
 from chromogenic.drivers.eucalyptus import ImageManager as EucaImageManager
 from chromogenic.drivers.migration import Xen2KVM
 from chromogenic.drivers.base import BaseDriver
-from chromogenic.boot import add_grub
 from chromogenic.common import sed_delete_multi, sed_replace, sed_append
 from chromogenic.common import run_command, copy_disk, create_empty_image
 from chromogenic.common import mount_image, check_distro
