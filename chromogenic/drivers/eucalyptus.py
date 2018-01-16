@@ -542,13 +542,6 @@ class ImageManager(BaseDriver):
                 rmdisk_version = line.replace('.img','').replace('initrd-','')
         return latest_rmdisk, rmdisk_version
 
-
-    def _get_stage_files(self, root_dir, distro):
-        if distro == 'centos':
-            run_command(['/bin/bash','-c','cp -f %s/extras/export/grub_files/centos/* %s/boot/grub/' % (self.extras_root, root_dir)])
-        elif distro == 'ubuntu':
-            run_command(['/bin/bash','-c','cp -f %s/extras/export/grub_files/ubuntu/* %s/boot/grub/' % (self.extras_root, root_dir)])
-
     def _format_meta_name(self, name, owner, timestamp_str=None, creator='admin'):
 
         if not timestamp_str:

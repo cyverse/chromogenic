@@ -501,12 +501,6 @@ def check_distro(root_dir=''):
     else:
         return 'unknown'
 
-def _get_stage_files(root_dir, distro):
-    if distro == 'centos':
-        run_command(['/bin/bash','-c','cp -f %s/extras/export/grub_files/centos/* %s/boot/grub/' % (settings.PROJECT_ROOT, root_dir)])
-    elif distro == 'ubuntu':
-        run_command(['/bin/bash','-c','cp -f %s/extras/export/grub_files/ubuntu/* %s/boot/grub/' % (settings.PROJECT_ROOT, root_dir)])
-
 def apply_label(image_path, label='root'):
     run_command(['e2label', image_path, label])
 
