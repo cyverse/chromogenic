@@ -664,6 +664,7 @@ def fsck_qcow(image_path):
     nbd_dev = _get_next_nbd()
     try:
         run_command(['qemu-nbd', '-c', nbd_dev, image_path])
+        run_command(['partprobe', '-s', nbd_dev])
         run_command(['fsck', '-y', nbd_dev])
     finally:
         run_command(['qemu-nbd', '-d', nbd_dev])
@@ -699,6 +700,7 @@ def mount_qcow(image_path, mount_point):
     nbd_dev = _get_next_nbd()
     #Mount disk to /dev/nbd*
     run_command(['qemu-nbd', '-c', nbd_dev, image_path])
+    run_command(['partprobe', '-s', nbd_dev])
     #Check if filesystem has multiple partitions
     try:
         partition = _fdisk_get_partition(nbd_dev)
