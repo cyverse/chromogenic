@@ -25,6 +25,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 -->
 
 ## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.4.18...HEAD) - YYYY-MM-DD
+### Added
+  - Added PR template, change log, and travis to automatically push new pypi
+    releases when tags are pushed
+    ([#9](https://github.com/cyverse/chromogenic/pull/9))
+
 ### Fixed
   - Fix imaging broken on linux 4.4.0 kernels
     ([#8](https://github.com/cyverse/chromogenic/pull/8))
