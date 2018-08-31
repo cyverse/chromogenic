@@ -24,7 +24,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
   - <in case of vulnerabilities>
 -->
 
-## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.4.18...HEAD) - YYYY-MM-DD
+## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.4.19...HEAD) - YYYY-MM-DD
+## [0.4.19](https://github.com/cyverse/chromogenic/compare/0.4.18...0.4.19) - 2018-08-31
 ### Added
   - Added PR template, change log, and travis to automatically push new pypi
     releases when tags are pushed
