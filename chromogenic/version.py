@@ -5,7 +5,7 @@ Current logger version.
 from subprocess import Popen, PIPE
 from os.path import abspath, dirname
 
-VERSION = (0, 4, 18, 'dev', 0)
+VERSION = (0, 4, 19, 'dev', 0)
 
 git_match = "(?P<git_flag>git://)\S*#egg="\
             "(?P<egg>[a-zA-Z0-9-]*[a-zA-Z])"\
@@ -68,7 +68,7 @@ def write_requirements(requirements_file, new_file):
         write_to.write("#Requirements:\n")
         [write_to.write("%s\n" % line) for line in install_requires]
     return
-        
+
 
 def git_sha():
     loc = abspath(dirname(__file__))
@@ -90,10 +90,10 @@ def get_version(form='short'):
 
     Takes single argument ``form``, which should be one of the following
     strings:
-    
+
     * ``short`` Returns major + minor branch version string with the format of
     B.b.t.
-    * ``normal`` Returns human readable version string with the format of 
+    * ``normal`` Returns human readable version string with the format of
     B.b.t _type type_num.
     * ``verbose`` Returns a verbose version string with the format of
     B.b.t _type type_num@git_sha
@@ -104,7 +104,7 @@ def get_version(form='short'):
     tertiary = VERSION[2]
     type_ = VERSION[3]
     type_num = VERSION[4]
-    
+
     versions["branch"] = branch
     v = versions["branch"]
     if tertiary:
