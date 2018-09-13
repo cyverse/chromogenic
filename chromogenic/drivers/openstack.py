@@ -784,12 +784,7 @@ class ImageManager(BaseDriver):
         return None
 
     def get_server(self, server_id):
-        servers = [server for server in
-                self.nova.servers.list(search_opts={'all_tenants':1}) if
-                server.id == server_id]
-        if not servers:
-            return None
-        return servers[0]
+        return self.nova.servers.get(server_id)
 
     def list_nova_images(self):
         return self.nova.images.list()
