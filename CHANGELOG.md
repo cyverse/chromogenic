@@ -24,10 +24,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
   - <in case of vulnerabilities>
 -->
 
-## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.4.19...HEAD) - YYYY-MM-DD
+## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.4.20...HEAD) - YYYY-MM-DD
+## [0.4.20](https://github.com/cyverse/chromogenic/compare/0.4.19...0.4.20) - 2018-09-14
 ### Fixed
   - Fix unnecessary expensive Nova API call when only one server is needed
     ([#11](https://github.com/cyverse/chromogenic/pull/11))
+
 ## [0.4.19](https://github.com/cyverse/chromogenic/compare/0.4.18...0.4.19) - 2018-08-31
 ### Added
   - Added PR template, change log, and travis to automatically push new pypi
