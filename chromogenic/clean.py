@@ -12,6 +12,7 @@ from chromogenic.common import (
     append_line_in_files, remove_line_in_files,
     replace_line_in_files, remove_multiline_in_files,
     execute_chroot_commands, atmo_required_files, fsck_image, mount_image)
+import chromogenic.virt_sysprep as virt_sysprep_files
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def remove_user_data(mounted_path, author=None, dry_run=False):
     _perform_cleaning(mounted_path, rm_files=remove_files,
                       remove_line_files=remove_line_files,
                       overwrite_list=overwrite_files,
-                      replace_line_files=replace_line_files, 
+                      replace_line_files=replace_line_files,
                       multiline_delete_files=multiline_delete_files,
                       execute_lines=execute_lines,
                       dry_run=dry_run)
@@ -75,7 +76,7 @@ def remove_atmo_data(mounted_path, dry_run=False):
                     '/opt/cyverse/tmp',
                     #Puppet
                     'var/lib/puppet/run/*.pid',
-                    'etc/puppet/ssl', 
+                    'etc/puppet/ssl',
                     #SSH
                     'root/.ssh',
                    ]
@@ -111,11 +112,11 @@ def remove_atmo_data(mounted_path, dry_run=False):
     _perform_cleaning(mounted_path, rm_files=remove_files,
                       remove_line_files=remove_line_files,
                       overwrite_list=overwrite_files,
-                      replace_line_files=replace_line_files, 
+                      replace_line_files=replace_line_files,
                       multiline_delete_files=multiline_delete_files,
                       append_line_files=append_line_files,
                       dry_run=dry_run)
-    
+
 
 def remove_vm_specific_data(mounted_path, dry_run=False):
     """
@@ -169,7 +170,7 @@ def remove_vm_specific_data(mounted_path, dry_run=False):
     _perform_cleaning(mounted_path, rm_files=remove_files,
                       remove_line_files=remove_line_files,
                       overwrite_list=overwrite_files,
-                      replace_line_files=replace_line_files, 
+                      replace_line_files=replace_line_files,
                       multiline_delete_files=multiline_delete_files,
                       dry_run=dry_run)
 
@@ -313,39 +314,28 @@ def mount_and_clean(image_path, mount_point, created_by=None, status_hook=None, 
         os.makedirs(mount_point)
     #FSCK the image, FIRST!
     fsck_image(image_path)
-    #Mount the directory
-    #NOTE: the 'nbd_device' is not being properly passed through here. As a result, the FINAL umount does not use `qemu-nbd -d`
-    result, nbd_device = mount_image(image_path, mount_point)
-    if not result:
-        raise Exception("Encountered errors mounting the image: %s"
-                % image_path)
-    if status_hook and hasattr(status_hook, 'on_update_status'):
-        status_hook.on_update_status("mounted + cleaning image")
-    try:
-        #Required cleaning
-        remove_user_data(mount_point, author=created_by)
-        remove_atmo_data(mount_point)
-        remove_vm_specific_data(mount_point)
 
-        #Filesystem cleaning (From within the image)
-        file_hook_cleaning(mount_point, **kwargs)
+    # Figure out distro using virt-inspect
+    import subprocess
+    output = subprocess.Popen(['virt-inspector', '-a', image_path], stdout=subprocess.PIPE).stdout.read()
+    distro = output[output.find("<distro>") + 8 : output.find("</distro>")]
 
-        #Driver specific cleaning
-        if method_hook:
-            method_hook(image_path, mount_point, **kwargs)
+    # Get filename and content based off distro
+    vs_filename = "{}/virt-sysprep-{}.txt".format(os.path.dirname(image_path), distro)
+    vs_content = virt_sysprep_files.commands % (getattr(virt_sysprep_files, distro))
 
-        #Required for atmosphere
-        atmo_required_files(mount_point)
-        #TODO: call `df -h <mount_point>` and record the `Use%`
-        #TODO: IF `Use%` > 90%, set 'new_image=True'
-        if status_hook and hasattr(status_hook, 'on_update_status'):
-            status_hook.on_update_status("cleaning completed")
-    except Exception as exc:
-        if status_hook and hasattr(status_hook, 'on_update_status'):
-            status_hook.on_update_status("cleaning failed - %s" % exc)
-    finally:
-        #Don't forget to unmount!
-        run_command(['umount', '-lf', mount_point], check_return=True)
-        if nbd_device:
-            run_command(['qemu-nbd', '-d', nbd_device])
-    return True
+    # Create file if it does not exist
+    if not os.path.exists(vs_filename):
+        with open(vs_filename, 'w+') as vs_file:
+            vs_file.write(vs_content)
+
+    # Use virt-sysprep to clean image
+    run_command([
+        'virt-sysprep',
+        '--format', 'qcow2',
+        '-a', image_path,
+        '--operations', 'defaults,kerberos-data,user-account',
+        '--hostname', distro,
+        '--network',
+        '--commands-from-file', vs_filename
+    ])
