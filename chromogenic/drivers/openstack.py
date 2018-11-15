@@ -261,6 +261,7 @@ class ImageManager(BaseDriver):
             if download_dir:
                 download_location = download_dir/username/image_name.qcow2
 	"""
+        self.clear_cache()
         parent_image = self.get_image(parent_image_id)
         #Step 1 download a local copy
         if not os.path.exists(download_location) or kwargs.get('force',False):
