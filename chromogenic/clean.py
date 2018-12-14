@@ -331,7 +331,7 @@ def mount_and_clean(image_path, mount_point, created_by=None, status_hook=None, 
 
     # Use virt-sysprep to clean image
     logger.info("Running virt-sysprep for distro {}".format(distro))
-    out, err = run_command([
+    proc = subprocess.Popen([
         'virt-sysprep',
         '--format', 'qcow2',
         '-a', image_path,
@@ -339,6 +339,10 @@ def mount_and_clean(image_path, mount_point, created_by=None, status_hook=None, 
         '--hostname', distro,
         '--network',
         '--commands-from-file', vs_filename
-    ])
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out,err = proc.communicate()
+    rc = proc.returncode
     logger.info("virt-sysprep out: {}".format(out))
-    logger.info("virt-sysprep err: {}".format(err))
+    if rc != 0:
+        logger.error("virt-sysprep exited with code {} and message: {}".format(rc, err))
+        raise Exception("virt-sysprep failed on image file {} with error: {}".format(image_path, err))
