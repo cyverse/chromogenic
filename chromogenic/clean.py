@@ -330,7 +330,8 @@ def mount_and_clean(image_path, mount_point, created_by=None, status_hook=None, 
             vs_file.write(vs_content)
 
     # Use virt-sysprep to clean image
-    run_command([
+    logger.info("Running virt-sysprep for distro {}".format(distro))
+    out, err = run_command([
         'virt-sysprep',
         '--format', 'qcow2',
         '-a', image_path,
@@ -339,3 +340,5 @@ def mount_and_clean(image_path, mount_point, created_by=None, status_hook=None, 
         '--network',
         '--commands-from-file', vs_filename
     ])
+    logger.info("virt-sysprep out: {}".format(out))
+    logger.info("virt-sysprep err: {}".format(err))
