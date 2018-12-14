@@ -1,4 +1,5 @@
 commands = r"""edit /etc/group:s/^users:x:100:.*/users:x:100:/
+edit /etc/group:s/^.+:x:1[0-9][0-9][0-9]:\n//
 edit /etc/ssh/sshd_config:s/^AllowGroups users root.*\n//
 edit /etc/rc.local:s/.*vncserver$//
 edit /etc/fstab:s/\/dev\/sda[2-9].*\n//
