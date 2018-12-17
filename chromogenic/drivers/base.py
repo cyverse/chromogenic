@@ -1,7 +1,7 @@
 import os
 import logging
 from chromogenic.common import mount_image, remove_files, fsck_image
-from chromogenic.common import run_command, atmo_required_files
+from chromogenic.common import run_command
 from chromogenic.common import copy_disk, create_empty_image
 from chromogenic.clean import mount_and_clean
 from chromogenic.common import prepare_chroot_env, remove_chroot_env
@@ -57,5 +57,3 @@ class BaseDriver():
                   download_dir=download_dir)
         #TODO: Grow filesystem via OS??
         return local_raw_path
-
-

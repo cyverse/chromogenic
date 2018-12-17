@@ -5,13 +5,13 @@ These functions are used to strip data from a VM before imaging occurs.
 
 """
 import logging, os
-from chromogenic.common import check_mounted, prepare_chroot_env,\
+from chromogenic.common import prepare_chroot_env,\
 remove_chroot_env, run_command, check_distro
 from chromogenic.common import (
     remove_files, overwrite_files,
     append_line_in_files, remove_line_in_files,
     replace_line_in_files, remove_multiline_in_files,
-    execute_chroot_commands, atmo_required_files, fsck_image, mount_image)
+    execute_chroot_commands, fsck_image, mount_image)
 import chromogenic.virt_sysprep as virt_sysprep_files
 
 logger = logging.getLogger(__name__)
