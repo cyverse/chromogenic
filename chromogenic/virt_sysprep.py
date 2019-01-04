@@ -51,9 +51,6 @@ touch /lib/udev/rules.d/75-persistent-net-generator.rules
 truncate /lib/udev/rules.d/75-persistent-net-generator.rules
 
 root-password password:atmosphere
-
-install cloud-init,cloud-utils
-uninstall avahi-daemon,fail2ban
 """
 
 ubuntu = ""

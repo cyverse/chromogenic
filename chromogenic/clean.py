@@ -72,7 +72,6 @@ def mount_and_clean(image_path, created_by=None, status_hook=None, method_hook=N
         '-a', image_path,
         '--operations', 'defaults,kerberos-data,user-account',
         '--hostname', distro,
-        '--network',
         '--commands-from-file', vs_filename
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out,err = proc.communicate()
