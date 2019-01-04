@@ -25,6 +25,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 -->
 
 ## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.4.20...HEAD) - YYYY-MM-DD
+  - Replace chroot and mount with virt-sysprep for preparing and cleaning images
+    ([#14](https://github.com/cyverse/chromogenic/pull/14))
+
 ## [0.4.20](https://github.com/cyverse/chromogenic/compare/0.4.19...0.4.20) - 2018-09-14
 ### Fixed
   - Fix unnecessary expensive Nova API call when only one server is needed
