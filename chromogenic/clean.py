@@ -55,6 +55,10 @@ def mount_and_clean(image_path, created_by=None, status_hook=None, method_hook=N
     output = subprocess.Popen(['virt-inspector', '-a', image_path], stdout=subprocess.PIPE).stdout.read()
     distro = output[output.find("<distro>") + 8 : output.find("</distro>")]
 
+    # Check that cloud-init is installed because virt-sysprep is currently unable to install it
+    if 'cloud-init' not in output:
+        raise Exception("cloud-init is not installed on this image so it will fail to deploy on Atmosphere")
+
     # Get filename and content based off distro
     vs_filename = "{}/virt-sysprep-{}.txt".format(os.path.dirname(image_path), distro)
     vs_content = virt_sysprep_files.commands % (getattr(virt_sysprep_files, distro))
