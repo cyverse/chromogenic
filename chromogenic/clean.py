@@ -72,7 +72,6 @@ def mount_and_clean(image_path, created_by=None, status_hook=None, method_hook=N
     logger.info("Running virt-sysprep for distro {}".format(distro))
     proc = subprocess.Popen([
         'virt-sysprep',
-        '--format', 'qcow2',
         '-a', image_path,
         '--operations', 'defaults,kerberos-data,user-account',
         '--hostname', distro,
