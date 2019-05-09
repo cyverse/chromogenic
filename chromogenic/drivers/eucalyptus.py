@@ -118,15 +118,11 @@ class ImageManager(BaseDriver):
         download_location = self.download_instance(**download_args)
         logger.debug("Instance downloaded to %s" % download_location)
         download_dir = download_args['download_dir']
-        mount_point = self.build_imaging_dirs(download_dir)
 
-        #Step 2. Mount and Clean image 
+        #Step 2. Mount and Clean image
         if kwargs.get('clean_image',True):
             logger.debug("Cleaning image file: %s" % download_location)
-            mount_and_clean(
-                    download_location,
-                    mount_point,
-                    **kwargs)
+            mount_and_clean(download_location, **kwargs)
 
         ##Step 3. Upload image
         upload_kwargs = self.parse_upload_args(
@@ -147,8 +143,8 @@ class ImageManager(BaseDriver):
         download_args = {}
         #REQUIRED kwargs:
         #  node_scp_info - Dictionary for accessing the node controller,
-        #  should contain: 
-        #    * hostname, 
+        #  should contain:
+        #    * hostname,
         #    * port,
         #    * username(if not root),
         #    * a private ssh_key that allows access to the box. (if necessary)
@@ -376,7 +372,7 @@ class ImageManager(BaseDriver):
                     image_name, new_image_path,
                     kernel_id, ramdisk_id,
                     download_dir, None, bucket_name,
-                    public, private_users) 
+                    public, private_users)
         finally:
             os.rename(new_image_path,image_path)
 
@@ -426,7 +422,7 @@ class ImageManager(BaseDriver):
 
         run_command(["umount", mount_point])
 
-        #Your new image is ready for upload to OpenStack 
+        #Your new image is ready for upload to OpenStack
         return (image_path, local_kernel_path, local_ramdisk_path)
 
     # __init__ privates
@@ -585,7 +581,7 @@ class ImageManager(BaseDriver):
         logger.debug("Deleted bucket %s" % bucket_name)
         return True
 
-        
+
 
     def _upload_kernel(self, image_path, bucket_name, download_dir='/tmp'):
         return self._upload_and_register(image_path, bucket_name,
@@ -600,7 +596,7 @@ class ImageManager(BaseDriver):
         bucket_name = bucket_name.lower()
         logger.debug('Bundling image %s to dir:%s'
                      % (image_path, download_dir))
-        manifest_loc = self._bundle_image(image_path, download_dir, 
+        manifest_loc = self._bundle_image(image_path, download_dir,
                                           kernel, ramdisk,
                                           ancestor_ami_ids=ancestor_ami_ids)
         logger.debug(manifest_loc)
@@ -610,7 +606,7 @@ class ImageManager(BaseDriver):
                     % new_image_id)
         return new_image_id
 
-    def scp_remote_file(self, remote_path=None, local_path=None, 
+    def scp_remote_file(self, remote_path=None, local_path=None,
                         user='root', hostname='localhost', port=22,
                         check_key=False, private_key=None):
         """
@@ -1118,5 +1114,3 @@ def _upload_parts(bucket_instance, directory, parts,
                 else:
                     logger.info(s3error_string)
                 sys.exit()
-
-

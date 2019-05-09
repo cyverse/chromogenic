@@ -37,13 +37,9 @@ def export_instance(src_managerCls, src_manager_creds, exportCls, export_kwargs)
 def begin_export(download_location, src_manager, export_kwargs):
     #Clean the image (Optional)
     download_dir = os.path.dirname(download_location)
-    mount_point = os.path.join(download_dir, 'mount_point/')
-    if not os.path.exists(mount_point):
-        os.makedirs(mount_point)
     if export_kwargs.get('clean_image',True):
         mount_and_clean(
                 download_location,
-                mount_point,
                 status_hook=getattr(src_manager, 'hook', None),
                 method_hook=getattr(src_manager, 'clean_hook', None),
                 **export_kwargs)

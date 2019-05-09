@@ -22,13 +22,9 @@ def migrate_instance(src_managerCls, src_manager_creds, migrationCls, migration_
     imaging_args['download_location'] = download_location
     #Clean it
     download_dir = os.path.dirname(download_location)
-    mount_point = os.path.join(download_dir, 'mount_point/')
-    if not os.path.exists(mount_point):
-        os.makedirs(mount_point)
     if imaging_args.get('clean_image',True):
         mount_and_clean(
                 download_location,
-                mount_point,
                 status_hook=getattr(src_manager, 'hook', None),
                 method_hook=getattr(src_manager, 'clean_hook', None),
                 **imaging_args)
@@ -48,14 +44,10 @@ def migrate_image(src_managerCls, src_manager_creds, migrationCls, migration_cre
     download_location = src_manager.download_image(**download_kwargs)
     #Clean it
     download_dir = os.path.dirname(download_location)
-    mount_point = os.path.join(download_dir, 'mount_point/')
-    if not os.path.exists(mount_point):
-        os.makedirs(mount_point)
     imaging_args['download_location'] = download_location
     if imaging_args.get('clean_image',True):
         mount_and_clean(
                 download_location,
-                mount_point,
                 status_hook=getattr(src_manager, 'hook', None),
                 method_hook=getattr(src_manager, 'clean_hook', None),
                 **imaging_args)
@@ -73,14 +65,10 @@ def start_migration(migrationCls, migration_creds, download_location, **imaging_
     dest_manager = migrationCls(**migration_creds)
     dest_manager.hook = imaging_args.get('machine_request', None)
     download_dir = os.path.dirname(download_location)
-    mount_point = os.path.join(download_dir, 'mount_point/')
-    if not os.path.exists(mount_point):
-        os.makedirs(mount_point)
     #2. clean using dest manager
     if imaging_args.get('clean_image',True):
         mount_and_clean(
                 download_location,
-                mount_point,
                 status_hook=getattr(dest_manager, 'hook', None),
                 method_hook=getattr(dest_manager, 'clean_hook', None),
                 **imaging_args)

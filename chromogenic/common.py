@@ -10,77 +10,6 @@ logger = logging.getLogger(__name__)
 # Tools
 ##
 
-def atmo_required_files(mounted_path):
-    #Add the atmosphere pub-key to every instance, because SSH key injection can fail..
-    inject_atmo_key(mounted_path)
-    inject_denyhosts_file(mounted_path)
-
-def touch_file(file_path):
-    created_before = os.path.isfile(file_path)
-    logger.info(
-        "%s file: %s"
-        % ("Touch new" if created_before else "Touch existing",
-           file_path))
-    with open(file_path, 'a'):
-        os.utime(file_path, None)
-
-
-def inject_atmo_key(mounted_path, ssh_dir="root/.ssh/"):
-    # Ensure SSH Directory exists
-    ssh_dir = os.path.join(mounted_path, ssh_dir)
-    if not os.path.isdir(ssh_dir):
-        os.makedirs(ssh_dir)
-    auth_key_file = "%s/authorized_keys" % ssh_dir
-    ssh_key = chromo_settings.SSH_KEY
-    if not ssh_key:
-        logger.warn("WARNING: SSH_KEY not set. Image will not be injected with a key!")
-        return
-    if not os.path.isfile(ssh_key):
-        logger.warn("DEPRECATION WARNING: SSH_KEY expects a *file path*. The old behavior, which accepts the raw_text input of an SSH key, will be used for now. In the future, an error will occur.")
-        return inject_raw_key_contents(mounted_path, auth_key_file, ssh_key)
-    with open(ssh_key, 'r') as ssh_keyfile:
-        ssh_key_contents = ssh_keyfile.read()
-    return inject_raw_key_contents(mounted_path, auth_key_file, ssh_key_contents)
-
-
-def inject_raw_key_contents(mounted_path, auth_key_file, ssh_key_contents):
-    ssh_key_template = """#Injected by Chromogenic
-%s
-""" % ssh_key_contents
-    mounted_auth_key_file = os.path.join(mounted_path, auth_key_file)
-    write_file(mounted_auth_key_file, ssh_key_template)
-
-
-def inject_denyhosts_file(mounted_path, denyhosts_file="var/lib/denyhosts/allowed-hosts"):
-    """
-    IF image uses 'denyhosts' add these allowed hosts
-    """
-    denyhosts_folder = os.path.dirname(denyhosts_file)
-    #Skip denyhost injection if denyhost is not installed!
-    if not os.path.isdir(denyhosts_folder):
-        return
-    test_denyhosts_file = os.path.join(mounted_path, denyhosts_file)
-    if not os.path.exists(test_denyhosts_file):
-        return
-
-    #Create some whitelists for denyhosts:
-    ALLOWED_HOST_LIST = [
-        ("128.196.172.*", denyhosts_file),
-        ("128.196.142.*", denyhosts_file),
-        ("128.196.64.*", denyhosts_file),
-        ("128.196.65.*", denyhosts_file),
-        ("128.196.38.*", denyhosts_file),
-        ("150.135.78.*", denyhosts_file),
-        ("150.135.93.*", denyhosts_file),
-    ]
-    text_to_write = "\n".join([rule[0] for rule in ALLOWED_HOST_LIST])
-    if not create_file(
-            denyhosts_file, mounted_path, text_to_write):
-        #Create_file failed (File exists -- Append the list.)
-        append_line_in_files(ALLOWED_HOST_LIST, mounted_path)
-    hosts_allow_list = [("ALL: %s" % rule.replace("*",""), "etc/hosts.allow")
-                        for rule,_ in ALLOWED_HOST_LIST]
-    append_line_in_files(hosts_allow_list, mounted_path)
 
 def run_command(commandList, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 stdin=None, dry_run=False, shell=False, check_return=False):
@@ -349,7 +278,7 @@ def check_root():
 def mount_image(image_path, mount_point):
     if not check_root():
         raise Exception("Only the root user can mount an image.")
-    if not check_dir(mount_point):
+    if not os.path.isdir(mount_point):
         os.makedirs(mount_point)
     return _detect_and_mount_image(image_path, mount_point)
 
@@ -374,18 +303,6 @@ def create_empty_image(new_image_path, image_type='raw',
     _format_partition(fdisk_stats['disk'], partition, new_image_path,
             label=label)
     return new_image_path
-
-
-##
-# Validation
-##
-
-def check_file(file_path):
-    return os.path.isfile(file_path)
-
-
-def check_dir(dir_path):
-    return os.path.isdir(dir_path)
 
 
 ##
@@ -568,40 +485,6 @@ def _detect_and_mount_image(image_path, mount_point):
         return (result, None)
     raise Exception("The type of image "
             "could not be determined based on the extension:%s" % file_ext)
-
-def check_mounted(mount_point):
-    dev_location = None
-    #Drop trailing slash to match 'mount' syntax
-    if mount_point and mount_point.endswith('/'):
-        mount_point = mount_point[:-1]
-    #Run mount and scan the output for 'mount_point'
-    stdout, stderr = run_command(['mount'])
-    regex = re.compile("(?P<device>[\w/]+) on (?P<location>.*) type")
-    for line in stdout.split('\n'):
-        res = regex.search(line)
-        if not res:
-            continue
-        search_dict = res.groupdict()
-        mount_location = search_dict['location']
-        if mount_point == mount_location:
-            dev_location = search_dict['device']
-
-    return dev_location
-
-def unmount_image(image_path, mount_point):
-    device = check_mounted(mount_point)
-    if not device:
-        return ('', '%s is not mounted' % image_path)
-    # Rely on file, its smarter than a name.
-    file_type = _get_type_by_metadata(image_path)
-
-    if 'qcow' in file_type:
-        return unmount_qcow(device)
-    elif file_type in ['raw','img']:
-        return unmount_raw(device)
-    else:
-        raise Exception("Encountered an unknown image type -- Extension : %s"
-                        % file_ext)
 
 def unmount_raw(block_device):
     #Remove net block device
@@ -811,32 +694,6 @@ def mount_raw_with_offsets(image_path, mount_point):
                 partition)
     return out, err
 
-def prepare_losetup(image_path):
-    out, err = run_command(['fdisk','-l',image_path])
-    fdisk_stats = _parse_fdisk_stats(out)
-    partition = _select_partition(fdisk_stats['devices'])
-    #This is a 'known constant'.. It should never change..
-    #4096 = Default block size for ext2/ext3
-    BLOCK_SIZE = 4096
-
-    #First mount the loopback device
-    loop_offset = part['start'] * disk['logical_sector_size']
-    (loop_str, _) = run_command(['losetup', '-fv', '-o', '%s' % loop_offset,
-        image_path])
-
-    #The last word of the output is the device
-    loop_dev = _losetup_extract_device(loop_str)
-    return loop_dev
-
-def _mount_lvm(image_path, mount_point):
-    """
-    LVM's are one of the more difficult problems..
-    We will save this until it becomes necessary.. And it will.
-    """
-    #vgscan
-    #...
-    pass
-
 
 def _select_partition(partitions):
     """
@@ -950,14 +807,3 @@ def build_imaging_dirs(download_dir, full_image=False):
     if full_image:
         return (kernel_dir, ramdisk_dir, mount_point)
     return mount_point
-
-def qemu_convert(image_location, dest_location, source_ext=None, output_ext=None):
-    if not source_ext:
-        _, source_ext = os.path.splitext(image_location)
-    if not output_ext:
-        _, output_ext = os.path.splitext(dest_location)
-    (out, err) = run_command(['qemu-img', 'convert',
-                            "-f", source_ext,
-                            '-O', output_ext,
-                            image_location, dest_location])
-    return out, err

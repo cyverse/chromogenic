@@ -270,7 +270,6 @@ class ImageManager(BaseDriver):
         if kwargs.get('clean_image',True):
             mount_and_clean(
                     download_location,
-                    os.path.join(download_dir, 'mount/'),
                     status_hook=getattr(self, 'hook', None),
                     method_hook=getattr(self, 'clean_hook',None),
                     **kwargs)
@@ -749,7 +748,7 @@ class ImageManager(BaseDriver):
 
     def _build_nova_creds(self, credentials):
         nova_args = credentials.copy()
-        #HACK - Nova is certified-broken-on-v3. 
+        #HACK - Nova is certified-broken-on-v3.
         nova_args['version'] = 'v2.0'
         nova_args['auth_url'] = nova_args['auth_url'].replace('v3','v2.0').replace('/tokens','')
         if credentials.get('ex_force_auth_version','3.x_password') == '2.0_password':
