@@ -24,7 +24,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
   - <in case of vulnerabilities>
 -->
 
-## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.4.20...HEAD) - YYYY-MM-DD
+## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.5.0...HEAD) - YYYY-MM-DD
+
+## [0.5.0](https://github.com/cyverse/chromogenic/compare/0.4.20...0.5.0) - 2019-06-03
   - Replace chroot and mount with virt-sysprep for preparing and cleaning images
     ([#14](https://github.com/cyverse/chromogenic/pull/14))
 
