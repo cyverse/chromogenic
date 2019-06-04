@@ -13,6 +13,7 @@ setuptools.setup(
     author_email='atmodevs@gmail.com',
     description="A unified imaging interface supporting multiple cloud providers.",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     license="Apache License, Version 2.0",
     url="https://github.com/iPlantCollaborativeOpenSource/chromogenic",
     packages=setuptools.find_packages(),
