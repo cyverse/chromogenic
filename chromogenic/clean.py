@@ -57,7 +57,7 @@ def mount_and_clean(image_path, created_by=None, status_hook=None, method_hook=N
     fstrim = 'run-command fstrim --all' if '<name>util-linux</name>' in output else ''
 
     # Check that cloud-init is installed because virt-sysprep is currently unable to install it
-    if 'cloud-init' not in output:
+    if '<name>cloud-init</name>' not in output:
         raise Exception("cloud-init is not installed on this image so it will fail to deploy on Atmosphere")
 
     # Get filename and content based off distro
