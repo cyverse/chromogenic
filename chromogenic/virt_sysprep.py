@@ -5,9 +5,6 @@ edit /etc/group:s/^.+:x:1[0-9][0-9][0-9]:\n//
 touch /etc/ssh/sshd_config
 edit /etc/ssh/sshd_config:s/^AllowGroups users root.*\n//
 
-touch /etc/rc.local
-edit /etc/rc.local:s/.*vncserver$//
-
 touch /etc/fstab
 edit /etc/fstab:s/\/dev\/sda[2-9].*\n//
 edit /etc/fstab:s/\/dev\/sda1[0-9].*\n//
