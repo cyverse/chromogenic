@@ -26,7 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.5.2...HEAD) - YYYY-MM-DD
 
-## [0.5.2](https://github.com/cyverse/chromogenic/compare/0.5.1...0.5.2) - 2019-09-27
+## [0.5.3](https://github.com/cyverse/chromogenic/compare/0.5.1...0.5.2) - 2019-09-27
 ### Fixed
   - Remove lines to modify /etc/rc.local because it often fails
     ([#19](https://github.com/cyverse/chromogenic/pull/19))
