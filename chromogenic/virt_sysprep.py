@@ -42,8 +42,6 @@ delete /usr/sbin/atmo_boot.py
 mkdir /mnt
 delete /mnt
 mkdir /mnt
-delete /tmp
-mkdir /tmp
 delete /proc
 mkdir /proc
 
