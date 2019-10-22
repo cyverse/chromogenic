@@ -24,7 +24,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
   - <in case of vulnerabilities>
 -->
 
-## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.5.3...HEAD) - YYYY-MM-DD
+## [Unreleased](https://github.com/cyverse/chromogenic/compare/0.5.4...HEAD) - YYYY-MM-DD
+
+
+## [0.5.4](https://github.com/cyverse/chromogenic/compare/0.5.3...0.5.4) - 2019-10-22
 ### Fixed
   - Removed lines to delete/reset `/tmp` since it is cleaned by default
     ([#22](https://github.com/cyverse/chromogenic/pull/22))
