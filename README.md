@@ -1,3 +1,5 @@
+# THIS REPOSITORY IS READONLY AND NO LONGER ACTIVE
+
 Chromogenic
 ====
 [![PyPI version](https://badge.fury.io/py/chromogenic.svg)](https://badge.fury.io/py/chromogenic)
